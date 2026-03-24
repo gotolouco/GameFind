@@ -2,14 +2,15 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './AuthProvider'
 import { getFavorites } from '@/lib/favorites'
-import { LogOut, Heart, User, ChevronDown } from 'lucide-react'
+import { LogOut, Heart, User, ChevronDown, Clock } from 'lucide-react'
 
 interface Props {
   onOpenAuth: () => void
   onOpenFavorites: () => void
+  onOpenHistory: () => void
 }
 
-export default function UserMenu({ onOpenAuth, onOpenFavorites }: Props) {
+export default function UserMenu({ onOpenAuth, onOpenFavorites, onOpenHistory}: Props) {
   const { user, loading, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [favCount, setFavCount] = useState(0)
@@ -53,6 +54,9 @@ export default function UserMenu({ onOpenAuth, onOpenFavorites }: Props) {
           <button className="user-menu-item" onClick={() => { onOpenFavorites(); setOpen(false) }}>
             <Heart size={13} /> Meus favoritos
             {favCount > 0 && <span className="fav-count">{favCount}</span>}
+          </button>
+          <button className="user-menu-item" onClick={() => { onOpenHistory(); setOpen(false) }}>
+            <Clock size={13} /> Historico
           </button>
           <div className="user-divider" />
           <button className="user-menu-item danger" onClick={signOut}>

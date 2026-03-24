@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Shuffle, Search, Clock, Gamepad2, MessageSquare } from 'lucide-react'
+import { Shuffle, Search, Gamepad2, MessageSquare } from 'lucide-react'
 import GenrePills from '@/components/GenrePills'
 import GameCard from '@/components/GameCard'
 import SearchBar from '@/components/SearchBar'
@@ -23,6 +23,7 @@ export default function Home() {
   const [previousTitles, setPreviousTitles] = useState<string[]>([])
   const [showAuth, setShowAuth] = useState(false)
   const [showFavorites, setShowFavorites] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   async function getRecs() {
     setLoading(true); setError(false); setGames([])
@@ -49,7 +50,7 @@ export default function Home() {
     <div className="container">
       <header>
         <div className="header-top">
-          <UserMenu onOpenAuth={() => setShowAuth(true)} onOpenFavorites={() => setShowFavorites(true)} />
+          <UserMenu onOpenAuth={() => setShowAuth(true)} onOpenFavorites={() => setShowFavorites(true)} onOpenHistory={() => setShowHistory(true)} />
         </div>
         <h1>GAMEFIND</h1>
         <p className="subtitle">// recomendações aleatórias por IA //</p>
@@ -68,9 +69,6 @@ export default function Home() {
         </button>
         <button className={`tab-btn ${tab === 'steam' ? 'active' : ''}`} onClick={() => setTab('steam')}>
           <Gamepad2 size={13} /> Steam
-        </button>
-        <button className={`tab-btn ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>
-          <Clock size={13} /> Histórico
         </button>
       </div>
 
@@ -105,11 +103,11 @@ export default function Home() {
 
       {tab === 'search' && <SearchBar />}
       {tab === 'steam' && <SteamPanel />}
-      {tab === 'history' && <HistoryPanel />}
       {tab === 'chat' && <ChatPanel />}
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
       {showFavorites && <FavoritesPanel onClose={() => setShowFavorites(false)} />}
+      {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} />}
     </div>
   )
 }
