@@ -180,7 +180,7 @@ export default function SteamPanel() {
             <>
               <div className="section-label">
                 Novidades & Lançamentos
-                <span className="count-badge">pág. {relPage + 1}/{relTotalPages}</span>
+                <span className="count-badge">pág. {relPage}/{relTotalPages}</span>
               </div>
               <div className="releases-grid">
                 {releases.map((g, i) => (
@@ -221,7 +221,7 @@ export default function SteamPanel() {
                   <button className="page-btn" onClick={() => fetchReleases(relPage - 1)} disabled={relPage === 1}>
                     <ChevronLeft size={14} /> Anterior
                   </button>
-                  <span className="page-info">Página {relPage + 1} de {relTotalPages}</span>
+                  <span className="page-info">Página {relPage} de {relTotalPages}</span>
                   <button className="page-btn" onClick={() => fetchReleases(relPage + 1)} disabled={relPage >= relTotalPages - 1}>
                     Próxima <ChevronRight size={14} />
                   </button>
