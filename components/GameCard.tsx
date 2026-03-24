@@ -1,26 +1,13 @@
 'use client'
-import { Game } from '@/lib/history'
-import { Heart, Star } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { Heart, Star } from 'lucide-react'
 import { useAuth } from './AuthProvider'
+import { Game, saveRating, removeRating, getRatings } from '@/lib/history' 
 import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
 
 interface Props {
   game: Game & { image?: string }
   index: number
-}
-
-const RATINGS_KEY = 'gamedrop_ratings'
-
-function getRatings(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}') } catch { return {} }
-}
-
-function saveRating(title: string, rating: number) {
-  try {
-    const r = getRatings(); r[title] = rating
-    localStorage.setItem(RATINGS_KEY, JSON.stringify(r))
-  } catch {}
 }
 
 export default function GameCard({ game, index }: Props) {
@@ -32,45 +19,63 @@ export default function GameCard({ game, index }: Props) {
   const [ratingDone, setRatingDone] = useState(false)
 
   useEffect(() => {
-    // Carrega nota local
-    const ratings = getRatings()
-    if (ratings[game.title]) { setUserRating(ratings[game.title]); setRatingDone(true) }
-    // Verifica se está favoritado (Supabase se logado, localStorage se não)
+    // Busca dados APENAS se o usuário estiver logado (direto do Supabase)
     if (user) {
+      getRatings().then(ratings => {
+        if (ratings[game.title]) { 
+          setUserRating(ratings[game.title])
+          setRatingDone(true) 
+        }
+      })
       isFavorited(game.title).then(setLiked)
     } else {
-      try {
-        const local = JSON.parse(localStorage.getItem('gamedrop_local_favs') || '[]')
-        setLiked(local.includes(game.title))
-      } catch {}
+      // Se não tiver usuário (ou se ele deslogar), zera os estados visuais
+      setUserRating(0)
+      setRatingDone(false)
+      setLiked(false)
     }
   }, [game.title, user])
 
   async function handleLike() {
+    if (!user) {
+      alert('Faça login para salvar seus jogos favoritos!')
+      return
+    }
+    
     if (likeLoading) return
     setLikeLoading(true)
+    
     const newLiked = !liked
     setLiked(newLiked)
 
-    if (user) {
-      // Salva no Supabase
-      if (newLiked) await addFavorite(game)
-      else await removeFavorite(game.title)
+    // Salva exclusivamente no Supabase
+    if (newLiked) {
+      await addFavorite(game)
     } else {
-      // Salva no localStorage
-      try {
-        const local: string[] = JSON.parse(localStorage.getItem('gamedrop_local_favs') || '[]')
-        const updated = newLiked ? [...local, game.title] : local.filter(t => t !== game.title)
-        localStorage.setItem('gamedrop_local_favs', JSON.stringify(updated))
-      } catch {}
+      await removeFavorite(game.title)
     }
+    
+    window.dispatchEvent(new Event('favoritesUpdated'))
+
     setLikeLoading(false)
   }
 
-  function handleRate(star: number) {
+  async function handleRate(star: number) {
+    if (!user) {
+      alert('Faça login para avaliar os jogos!')
+      return
+    }
+
     const newRating = userRating === star ? 0 : star
-    setUserRating(newRating); setRatingDone(newRating > 0)
-    saveRating(game.title, newRating)
+    setUserRating(newRating)
+    setRatingDone(newRating > 0)
+
+    // Salva exclusivamente no Supabase
+    if (newRating === 0) {
+      await removeRating(game.title)
+    } else {
+      await saveRating(game.title, newRating)
+    }
   }
 
   const scoreColor = game.score >= 85 ? '#4ade80' : game.score >= 70 ? '#facc15' : '#ff3e6c'
@@ -95,7 +100,7 @@ export default function GameCard({ game, index }: Props) {
             className={`like-btn ${liked ? 'liked' : ''}`}
             onClick={handleLike}
             disabled={likeLoading}
-            title={user ? (liked ? 'Remover dos favoritos' : 'Favoritar') : 'Entre para favoritar na nuvem'}
+            title={user ? (liked ? 'Remover dos favoritos' : 'Favoritar') : 'Faça login para favoritar'}
           >
             <Heart size={14} fill={liked ? '#ff3e6c' : 'none'} />
           </button>
@@ -109,7 +114,7 @@ export default function GameCard({ game, index }: Props) {
                 onMouseEnter={() => setHoverRating(star)}
                 onMouseLeave={() => setHoverRating(0)}
                 onClick={() => handleRate(star)}
-                title={ratingLabels[star]}
+                title={!user ? 'Faça login para avaliar' : ratingLabels[star]}
               >
                 <Star
                   size={15}

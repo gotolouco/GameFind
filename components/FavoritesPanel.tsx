@@ -26,6 +26,8 @@ export default function FavoritesPanel({ onClose }: Props) {
   async function handleRemove(title: string) {
     await removeFavorite(title)
     setFavorites(prev => prev.filter(f => f.title !== title))
+
+    window.dispatchEvent(new Event('favoritesUpdated'))
   }
 
   return (

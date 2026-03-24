@@ -1,16 +1,8 @@
 'use client'
-import { getHistory, clearHistory, HistorySession } from '@/lib/history'
 import { useState, useEffect } from 'react'
-import { Clock, Trash2, ChevronDown, ChevronUp, Star, X } from 'lucide-react'
-
-const RATINGS_KEY = 'gamedrop_ratings'
-
-function getRatings(): Record<string, number> {
-  try {
-    const raw = localStorage.getItem(RATINGS_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
-}
+import { getHistory, clearHistory, getRatings, clearAllRatings, removeRating, HistorySession } from '@/lib/history'
+import { useAuth } from './AuthProvider'
+import { Clock, Trash2, ChevronDown, ChevronUp, Star, X, Loader2 } from 'lucide-react'
 
 type HistoryTab = 'sessions' | 'ratings'
 
@@ -19,44 +11,58 @@ interface Props {
 }
 
 export default function HistoryPanel({ onClose }: Props) {
+  // Mantemos o useAuth apenas para saber se mostramos a mensagem de "Faça login"
+  const { user } = useAuth() 
   const [historyTab, setHistoryTab] = useState<HistoryTab>('sessions')
   const [history, setHistory] = useState<HistorySession[]>([])
   const [ratings, setRatings] = useState<Record<string, number>>({})
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const ratingLabels = ['', 'Péssimo', 'Ruim', 'Ok', 'Bom', 'Incrível!']
 
   useEffect(() => {
-    setHistory(getHistory())
-    setRatings(getRatings())
-  }, [historyTab])
+    async function loadData() {
+      if (user) {
+        setLoading(true)
+        // Chamadas limpas, sem precisar passar o user.id!
+        const [fetchedHistory, fetchedRatings] = await Promise.all([
+          getHistory(),
+          getRatings()
+        ])
+        setHistory(fetchedHistory)
+        setRatings(fetchedRatings)
+      }
+      setLoading(false)
+    }
+    loadData()
+  }, [user, historyTab])
 
-  function handleClearSessions() {
-    clearHistory()
+  async function handleClearSessions() {
+    if (!user) return
+    await clearHistory() // Sem user.id
     setHistory([])
   }
 
-  function handleClearRatings() {
-    localStorage.removeItem(RATINGS_KEY)
+  async function handleClearRatings() {
+    if (!user) return
+    await clearAllRatings() // Sem user.id
     setRatings({})
   }
 
-  function handleRemoveRating(title: string) {
+  async function handleRemoveRating(title: string) {
+    if (!user) return
+    await removeRating(title) // Apenas o título do jogo
     const updated = { ...ratings }
     delete updated[title]
-    localStorage.setItem(RATINGS_KEY, JSON.stringify(updated))
     setRatings(updated)
   }
 
   const ratedGames = Object.entries(ratings).sort((a, b) => b[1] - a[1])
 
   return (
-    // Mesma classe e lógica de clique fora para fechar do FavoritesPanel
     <div className="auth-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      {/* Usando a mesma classe base de modal para manter a largura, fundo e bordas idênticas */}
       <div className="favorites-modal">
-        
-        {/* Mesmo cabeçalho do FavoritesPanel */}
         <div className="auth-header">
           <div className="auth-logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Clock size={14} /> Meu Histórico
@@ -64,119 +70,131 @@ export default function HistoryPanel({ onClose }: Props) {
           <button className="auth-close" onClick={onClose}><X size={16} /></button>
         </div>
 
-        {/* O conteúdo do histórico fica logo abaixo do header */}
-        <div className="history-panel-wrap" style={{ marginTop: '1rem' }}>
-          {/* Sub-tabs */}
-          <div className="history-subtabs">
-            <button
-              className={`history-subtab ${historyTab === 'sessions' ? 'active' : ''}`}
-              onClick={() => setHistoryTab('sessions')}
-            >
-              <Clock size={13} /> Sessões ({history.length})
-            </button>
-            <button
-              className={`history-subtab ${historyTab === 'ratings' ? 'active' : ''}`}
-              onClick={() => setHistoryTab('ratings')}
-            >
-              <Star size={13} /> Avaliações ({ratedGames.length})
-            </button>
+        {!user ? (
+          <div className="fav-empty" style={{ marginTop: '2rem' }}>
+            <Clock size={24} style={{ opacity: 0.3, marginBottom: 8 }} />
+            <p>Faça login para ver seu histórico e avaliações.</p>
           </div>
+        ) : loading ? (
+          <div className="fav-empty" style={{ marginTop: '2rem' }}>
+             <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto', opacity: 0.5 }} />
+             <p style={{ marginTop: 8 }}>Carregando dados...</p>
+          </div>
+        ) : (
+          <div className="history-panel-wrap" style={{ marginTop: '1rem' }}>
+            {/* Sub-tabs */}
+            <div className="history-subtabs">
+              <button
+                className={`history-subtab ${historyTab === 'sessions' ? 'active' : ''}`}
+                onClick={() => setHistoryTab('sessions')}
+              >
+                <Clock size={13} /> Sessões ({history.length})
+              </button>
+              <button
+                className={`history-subtab ${historyTab === 'ratings' ? 'active' : ''}`}
+                onClick={() => setHistoryTab('ratings')}
+              >
+                <Star size={13} /> Avaliações ({ratedGames.length})
+              </button>
+            </div>
 
-          {/* SESSÕES */}
-          {historyTab === 'sessions' && (
-            <div className="history-panel">
-              <div className="history-header">
-                <span className="history-title"><Clock size={14} /> Histórico de sessões</span>
-                {history.length > 0 && (
-                  <button className="history-clear" onClick={handleClearSessions}>
-                    <Trash2 size={12} /> Limpar
-                  </button>
+            {/* SESSÕES */}
+            {historyTab === 'sessions' && (
+              <div className="history-panel">
+                <div className="history-header">
+                  <span className="history-title"><Clock size={14} /> Histórico de sessões</span>
+                  {history.length > 0 && (
+                    <button className="history-clear" onClick={handleClearSessions}>
+                      <Trash2 size={12} /> Limpar
+                    </button>
+                  )}
+                </div>
+                {history.length === 0 ? (
+                  <p className="history-empty">Nenhuma sessão salva ainda.</p>
+                ) : (
+                  <div className="history-list">
+                    {history.map((session) => (
+                      <div key={session.id} className="history-item">
+                        <button
+                          className="history-item-header"
+                          onClick={() => setExpanded(expanded === session.id ? null : session.id)}
+                        >
+                          {/* Formatando a data do Supabase para o padrão brasileiro */}
+                          <span><strong>{session.genre}</strong> — {new Date(session.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {session.games?.length || 0} jogos
+                            {expanded === session.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </span>
+                        </button>
+                        {expanded === session.id && (
+                          <ul className="history-games">
+                            {session.games?.map((g) => (
+                              <li key={g.title}>
+                                <span className="hg-title">{g.title}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  {ratings[g.title] && (
+                                    <span style={{ color: '#facc15', fontSize: '0.6rem' }}>
+                                      {'★'.repeat(ratings[g.title])}
+                                    </span>
+                                  )}
+                                  <span className="hg-genre">{g.genre}</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-              {history.length === 0 ? (
-                <p className="history-empty">Nenhuma sessão salva ainda.</p>
-              ) : (
-                <div className="history-list">
-                  {history.map((session) => (
-                    <div key={session.id} className="history-item">
-                      <button
-                        className="history-item-header"
-                        onClick={() => setExpanded(expanded === session.id ? null : session.id)}
-                      >
-                        <span><strong>{session.genre}</strong> — {session.date}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          {session.games.length} jogos
-                          {expanded === session.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        </span>
-                      </button>
-                      {expanded === session.id && (
-                        <ul className="history-games">
-                          {session.games.map((g) => (
-                            <li key={g.title}>
-                              <span className="hg-title">{g.title}</span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                {ratings[g.title] && (
-                                  <span style={{ color: '#facc15', fontSize: '0.6rem' }}>
-                                    {'★'.repeat(ratings[g.title])}
-                                  </span>
-                                )}
-                                <span className="hg-genre">{g.genre}</span>
-                              </div>
-                            </li>
+            )}
+
+            {/* AVALIAÇÕES */}
+            {historyTab === 'ratings' && (
+              <div className="history-panel">
+                <div className="history-header">
+                  <span className="history-title"><Star size={14} /> Meus jogos avaliados</span>
+                  {ratedGames.length > 0 && (
+                    <button className="history-clear" onClick={handleClearRatings}>
+                      <Trash2 size={12} /> Limpar
+                    </button>
+                  )}
+                </div>
+                {ratedGames.length === 0 ? (
+                  <p className="history-empty">Nenhuma avaliação ainda. Avalie jogos nos cards!</p>
+                ) : (
+                  <div className="ratings-list">
+                    {ratedGames.map(([title, rating]) => (
+                      <div key={title} className="rating-item">
+                        <div className="rating-item-stars">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <Star
+                              key={s}
+                              size={12}
+                              fill={rating >= s ? '#facc15' : 'none'}
+                              color={rating >= s ? '#facc15' : 'var(--muted)'}
+                              strokeWidth={1.5}
+                            />
                           ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* AVALIAÇÕES */}
-          {historyTab === 'ratings' && (
-            <div className="history-panel">
-              <div className="history-header">
-                <span className="history-title"><Star size={14} /> Meus jogos avaliados</span>
-                {ratedGames.length > 0 && (
-                  <button className="history-clear" onClick={handleClearRatings}>
-                    <Trash2 size={12} /> Limpar
-                  </button>
+                        </div>
+                        <div className="rating-item-info">
+                          <span className="rating-item-title">{title}</span>
+                          <span className="rating-item-label">{ratingLabels[rating]}</span>
+                        </div>
+                        <button
+                          className="rating-item-remove"
+                          onClick={() => handleRemoveRating(title)}
+                          title="Remover avaliação"
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-              {ratedGames.length === 0 ? (
-                <p className="history-empty">Nenhuma avaliação ainda. Avalie jogos nos cards!</p>
-              ) : (
-                <div className="ratings-list">
-                  {ratedGames.map(([title, rating]) => (
-                    <div key={title} className="rating-item">
-                      <div className="rating-item-stars">
-                        {[1, 2, 3, 4, 5].map(s => (
-                          <Star
-                            key={s}
-                            size={12}
-                            fill={rating >= s ? '#facc15' : 'none'}
-                            color={rating >= s ? '#facc15' : 'var(--muted)'}
-                            strokeWidth={1.5}
-                          />
-                        ))}
-                      </div>
-                      <div className="rating-item-info">
-                        <span className="rating-item-title">{title}</span>
-                        <span className="rating-item-label">{ratingLabels[rating]}</span>
-                      </div>
-                      <button
-                        className="rating-item-remove"
-                        onClick={() => handleRemoveRating(title)}
-                        title="Remover avaliação"
-                      >✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

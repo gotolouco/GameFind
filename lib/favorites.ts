@@ -3,7 +3,6 @@ import { Game } from './history'
 
 export interface FavoriteGame extends Game {
   id?: string
-  image?: string
   user_id?: string
   created_at?: string
 }

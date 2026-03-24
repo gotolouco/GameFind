@@ -15,9 +15,25 @@ export default function UserMenu({ onOpenAuth, onOpenFavorites, onOpenHistory}: 
   const [open, setOpen] = useState(false)
   const [favCount, setFavCount] = useState(0)
 
+  // Atualizado para buscar inicialmente e escutar eventos de mudança
   useEffect(() => {
-    if (user) {
-      getFavorites().then(favs => setFavCount(favs.length))
+    function fetchFavCount() {
+      if (user) {
+        getFavorites().then(favs => setFavCount(favs.length))
+      } else {
+        setFavCount(0)
+      }
+    }
+
+    // Carrega a quantidade assim que o menu aparece ou o user loga
+    fetchFavCount()
+
+    // Fica escutando o evento 'favoritesUpdated' que vamos disparar nos outros componentes
+    window.addEventListener('favoritesUpdated', fetchFavCount)
+
+    // Remove a escuta ao desmontar para evitar vazamento de memória
+    return () => {
+      window.removeEventListener('favoritesUpdated', fetchFavCount)
     }
   }, [user])
 
