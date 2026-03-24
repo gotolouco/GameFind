@@ -1701,3 +1701,75 @@ h1 {
   z-index: 1;
 }
 .fav-remove:hover { color: var(--accent); background: rgba(0,0,0,0.8); }
+
+
+
+/* ANIMAÇÃO DE REMOÇÃO DE FAVORITOS */
+@keyframes neonVaporize {
+  0% {
+    opacity: 1;
+    transform: scale(1) perspective(1000px) rotateX(0deg);
+    filter: blur(0px);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.05) perspective(1000px) rotateX(-5deg);
+    filter: blur(0px) drop-shadow(0 0 10px #ff3e6c); /* Sombra neon magenta */
+  }
+  50% {
+    filter: blur(2px) drop-shadow(0 0 15px #06b6d4); /* Sombra neon ciano */
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6) perspective(1000px) rotateX(15deg) translateY(-20px);
+    filter: blur(8px) drop-shadow(0 0 20px #ff3e6c); /* Sombra neon magenta */
+  }
+}
+
+/* Animação das Partículas Neon (Simulação com Pseudo-Elementos) */
+@keyframes particleSpread {
+  0% {
+    transform: translate(-50%, -50%) scale(0) translate(0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2) translate(var(--x), var(--y));
+    opacity: 0;
+  }
+}
+
+/* Classe que aplica a animação principal */
+.game-card-removing {
+  animation: neonVaporize 0.5s ease-in forwards;
+  pointer-events: none; /* Impede cliques durante a animação */
+  position: relative; /* Necessário para os pseudo-elementos */
+  z-index: 5; /* Fica um pouco acima para o efeito drop-shadow */
+}
+
+/* Pseudo-elementos para as Partículas */
+.game-card-removing::before,
+.game-card-removing::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+  opacity: 0;
+  z-index: -1; /* Fica atrás do card */
+}
+
+/* Disparar Partícula 1 (Magenta) */
+.game-card-removing::before {
+  background: radial-gradient(circle, #ff3e6c, #06b6d400 70%);
+  animation: particleSpread 0.4s ease-out forwards;
+  --x: -60px; --y: -40px; /* Direção da partícula */
+}
+
+/* Disparar Partícula 2 (Ciano com Atraso) */
+.game-card-removing::after {
+  background: radial-gradient(circle, #06b6d4, #ff3e6c00 70%);
+  animation: particleSpread 0.4s 0.1s ease-out forwards; /* Atraso leve */
+  --x: 60px; --y: 40px; /* Direção da partícula */
+}

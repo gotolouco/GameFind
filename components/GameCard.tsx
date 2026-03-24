@@ -8,9 +8,10 @@ import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
 interface Props {
   game: Game & { image?: string }
   index: number
+  hideLike?: boolean
 }
 
-export default function GameCard({ game, index }: Props) {
+export default function GameCard({ game, index, hideLike}: Props) {
   const { user } = useAuth()
   const [liked, setLiked] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)
@@ -96,14 +97,16 @@ export default function GameCard({ game, index }: Props) {
         <div className="card-meta">
           {game.tags.map((t) => <span key={t} className="meta-tag">{t}</span>)}
           <span className="meta-score" style={{ color: scoreColor }}>{game.score}/100</span>
-          <button
-            className={`like-btn ${liked ? 'liked' : ''}`}
-            onClick={handleLike}
-            disabled={likeLoading}
-            title={user ? (liked ? 'Remover dos favoritos' : 'Favoritar') : 'Faça login para favoritar'}
-          >
-            <Heart size={14} fill={liked ? '#ff3e6c' : 'none'} />
-          </button>
+          {!hideLike && (
+            <button
+              className={`like-btn ${liked ? 'liked' : ''}`}
+              onClick={handleLike}
+              disabled={likeLoading}
+              title={user ? (liked ? 'Remover dos favoritos' : 'Favoritar') : 'Faça login para favoritar'}
+            >
+              <Heart size={14} fill={liked ? '#ff3e6c' : 'none'} />
+            </button>
+          )}
         </div>
         <div className="card-rating">
           <div className="rating-stars">

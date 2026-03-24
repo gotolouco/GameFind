@@ -14,6 +14,9 @@ export default function FavoritesPanel({ onClose }: Props) {
   const [favorites, setFavorites] = useState<FavoriteGame[]>([])
   const [loading, setLoading] = useState(true)
 
+  // NOVO: Estado para saber qual jogo está tocando a animação de saída (usando o ID)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
   useEffect(() => {
     if (user) {
       getFavorites().then(favs => {
@@ -23,11 +26,22 @@ export default function FavoritesPanel({ onClose }: Props) {
     }
   }, [user])
 
-  async function handleRemove(title: string) {
-    await removeFavorite(title)
-    setFavorites(prev => prev.filter(f => f.title !== title))
+  // FUNÇÃO DE REMOVER ATUALIZADA COM ATRASO
+  async function handleRemove(id: string, title: string) {
+    if (removingId) return // Impede múltiplos cliques rápidos
 
-    window.dispatchEvent(new Event('favoritesUpdated'))
+    // 1. Inicia a animação futurística no card correto
+    setRemovingId(id)
+
+    // 2. Remove do Supabase por trás dos panos
+    await removeFavorite(title)
+
+    // 3. Espera 500ms (o tempo da animação no CSS) e tira da tela
+    setTimeout(() => {
+      setFavorites(prev => prev.filter(f => f.id !== id))
+      setRemovingId(null) // Zera o estado para os próximos
+      window.dispatchEvent(new Event('favoritesUpdated')) // Atualiza a contagem no UserMenu
+    }, 500)
   }
 
   return (
@@ -51,14 +65,36 @@ export default function FavoritesPanel({ onClose }: Props) {
         ) : (
           <div className="fav-grid">
             {favorites.map((g, i) => (
-              <div key={g.id} style={{ position: 'relative' }}>
-                <GameCard game={g} index={i} />
+              <div 
+                key={g.id || g.title} 
+                style={{ position: 'relative' }}
+                className={removingId === g.id ? 'game-card-removing' : ''}
+              >
+                {/* Avisamos o card para esconder o coração */}
+                <GameCard game={g} index={i} hideLike={true} /> 
+                
+                {/* Botão de lixeira com estilo absoluto para não quebrar o layout */}
                 <button
                   className="fav-remove"
-                  onClick={() => handleRemove(g.title)}
+                  onClick={() => handleRemove(g.id!, g.title)}
                   title="Remover dos favoritos"
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    right: '12px',
+                    background: '#0f172a', // Fundo escuro para contrastar
+                    border: '1px solid #ff3e6c', // Borda neon
+                    color: '#ff3e6c',
+                    padding: '6px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             ))}
