@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { GAMEFIND_SYSTEM_PROMPT } from '@/lib/prompts'
 
+// ─── Steam Data ──────────────────────────────────────────────────────────────
 async function getSteamData(title: string) {
   try {
     const searchRes = await fetch(
@@ -11,6 +13,7 @@ async function getSteamData(title: string) {
       return {
         image: `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
         steamUrl: `https://store.steampowered.com/app/${appid}`,
+        steamScore: data.items[0].metascore || null,
       }
     }
     return { image: null, steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}` }
@@ -31,55 +34,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'GROQ_API_KEY não configurada' }, { status: 500 })
   }
 
-  // Embaralha e pega só 5 jogos aleatórios do top para variar o contexto
   const randomGames = shuffle(topGames).slice(0, 5)
   const gameList = randomGames.map((g: any) => g.title).join(', ')
 
-  // Informa à IA quais jogos já foram recomendados antes para evitar repetição
   const avoidList = previousTitles.length > 0
-    ? `\n\nIMPORTANTE: NÃO recomende nenhum destes jogos que já foram sugeridos antes: ${previousTitles.join(', ')}.`
+    ? `\nIMPORTANTE: NUNCA recomende estes jogos (já foram sugeridos): ${previousTitles.join(', ')}.`
     : ''
 
-  // Sorteia um "ângulo" de recomendação diferente a cada chamada
   const angles = [
-    'Foque em jogos indie surpreendentes e joias escondidas',
-    'Foque em clássicos que todo gamer deveria ter jogado',
-    'Foque em lançamentos recentes dos últimos 2 anos',
-    'Foque em jogos com narrativa e história marcante',
-    'Foque em jogos com muitas horas de conteúdo e replay',
-    'Foque em jogos cooperativos ou multiplayer',
-    'Foque em gêneros diferentes dos jogos listados',
-    'Misture AAA com pequenas produções independentes',
+    'Foque em jogos indie surpreendentes e joias escondidas.',
+    'Foque em clássicos que todo gamer deveria ter jogado.',
+    'Foque em lançamentos recentes dos últimos 2 anos.',
+    'Foque em jogos com narrativa e história marcante.',
+    'Foque em jogos com muitas horas de conteúdo e replay.',
+    'Foque em jogos cooperativos ou multiplayer.',
+    'Foque em gêneros diferentes dos jogos listados.',
+    'Misture AAA com pequenas produções independentes.',
   ]
   const angle = angles[Math.floor(Math.random() * angles.length)]
 
-  const prompt = `Você é um especialista em jogos de PC com conhecimento enciclopédico.
-
-Alguns dos jogos mais jogados na Steam agora: ${gameList}
-
-Com base nisso, recomende 6 jogos que esse público vai adorar. ${angle}.${avoidList}
-
-Responda APENAS em JSON puro, sem markdown. Formato exato:
-{
-  "games": [
-    {
-      "title": "Nome Exato do Jogo em Inglês",
-      "genre": "Gênero principal",
-      "year": 2023,
-      "description": "Por que quem joga esses jogos vai amar este (2 frases em português)",
-      "score": 85,
-      "tags": ["tag1", "tag2", "tag3"],
-      "why": "Conexão criativa com as tendências do momento (1 frase em português)"
-    }
-  ]
-}
-
-Regras:
-- score entre 60 e 100
-- tags: 2-4 palavras curtas em português
-- Use o nome oficial do jogo em inglês no campo title (para buscar imagens corretamente)
-- Seja criativo e surpreendente — evite sempre os mesmos títulos óbvios
-- Sempre em português brasileiro nos campos description, why e tags`
+  // O User Prompt agora foca apenas no CONTEXTO dinâmico da requisição
+  const userContextPrompt = `Aqui está o contexto para a sua curadoria:
+  1. Jogos populares no momento: ${gameList}.
+  2. Direcionamento criativo: ${angle}${avoidList}
+  
+  Gere exatamente 6 recomendações baseadas nesse perfil. 
+  Lembre-se de retornar APENAS o bloco <games> com os dados em JSON, sem textos adicionais antes ou depois.`
 
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -90,9 +70,12 @@ Regras:
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 1200,
-        temperature: 1.1, // mais alto = mais criativo e variado
-        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1500,
+        temperature: 0.9, // Reduzi um pouco de 1.1 para 0.9 para evitar quebrar a estrutura JSON/XML, mantendo criatividade
+        messages: [
+          { role: 'system', content: GAMEFIND_SYSTEM_PROMPT },
+          { role: 'user', content: userContextPrompt }
+        ],
       }),
     })
 
@@ -103,16 +86,22 @@ Regras:
     }
 
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content
-    const clean = text
-      .replace(/```json|```/g, '')
-      .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, '') // remove bad control chars (keep \n \r)
-      .replace(/\n/g, ' ')                             // flatten newlines inside strings
-      .trim()
-    const parsed = JSON.parse(clean)
+    const text = data.choices?.[0]?.message?.content || ''
 
+    // Extrai especificamente o conteúdo de dentro das tags <games>
+    const match = text.match(/<games>\s*([\s\S]*?)\s*<\/games>/i)
+    if (!match) {
+      console.error('Retorno inesperado:', text)
+      throw new Error('A IA não retornou o bloco <games> esperado.')
+    }
+
+    // Limpa caracteres de controle ruins antes do parse
+    const cleanJson = match[1].replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, '').trim()
+    const parsedGamesArray = JSON.parse(cleanJson)
+
+    // O novo system prompt retorna um Array direto [{}, {}], e não um objeto { "games": [] }
     const gamesWithSteamData = await Promise.all(
-      parsed.games.map(async (game: any) => {
+      parsedGamesArray.map(async (game: any) => {
         const steamDetails = await getSteamData(game.title)
         return { ...game, image: steamDetails.image, steamUrl: steamDetails.steamUrl }
       })
