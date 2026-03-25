@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-async function fetchGameImage(title: string): Promise<string | null> {
+async function getSteamData(title: string) {
   try {
-    const rawgKey = process.env.RAWG_API_KEY
-    const url = rawgKey
-      ? `https://api.rawg.io/api/games?search=${encodeURIComponent(title)}&page_size=1&key=${rawgKey}`
-      : `https://api.rawg.io/api/games?search=${encodeURIComponent(title)}&page_size=1`
-    const res = await fetch(url)
-    const data = await res.json()
-    return data.results?.[0]?.background_image || null
+    const searchRes = await fetch(
+      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=latam&cc=BR`
+    )
+    const data = await searchRes.json()
+    if (data?.items?.length > 0) {
+      const appid = data.items[0].id
+      return {
+        image: `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
+        steamUrl: `https://store.steampowered.com/app/${appid}`,
+      }
+    }
+    return { image: null, steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}` }
   } catch {
-    return null
+    return { image: null, steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}` }
   }
 }
 
@@ -106,14 +111,14 @@ Regras:
       .trim()
     const parsed = JSON.parse(clean)
 
-    const gamesWithImages = await Promise.all(
-      parsed.games.map(async (game: any) => ({
-        ...game,
-        image: await fetchGameImage(game.title),
-      }))
+    const gamesWithSteamData = await Promise.all(
+      parsed.games.map(async (game: any) => {
+        const steamDetails = await getSteamData(game.title)
+        return { ...game, image: steamDetails.image, steamUrl: steamDetails.steamUrl }
+      })
     )
 
-    return NextResponse.json({ games: gamesWithImages })
+    return NextResponse.json({ games: gamesWithSteamData })
   } catch (err) {
     console.error('❌ Steam recommend error:', err)
     return NextResponse.json({ error: String(err) }, { status: 500 })
