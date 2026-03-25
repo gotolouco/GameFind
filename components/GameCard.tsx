@@ -6,7 +6,7 @@ import { Game, saveRating, removeRating, getRatings } from '@/lib/history'
 import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
 
 interface Props {
-  game: Game & { image?: string }
+  game: Game & { image?: string; steamUrl?: string }
   index: number
   hideLike?: boolean
 }
@@ -20,7 +20,6 @@ export default function GameCard({ game, index, hideLike}: Props) {
   const [ratingDone, setRatingDone] = useState(false)
 
   useEffect(() => {
-    // Busca dados APENAS se o usuário estiver logado (direto do Supabase)
     if (user) {
       getRatings().then(ratings => {
         if (ratings[game.title]) { 
@@ -30,14 +29,21 @@ export default function GameCard({ game, index, hideLike}: Props) {
       })
       isFavorited(game.title).then(setLiked)
     } else {
-      // Se não tiver usuário (ou se ele deslogar), zera os estados visuais
       setUserRating(0)
       setRatingDone(false)
       setLiked(false)
     }
   }, [game.title, user])
 
-  async function handleLike() {
+  // FUNÇÃO CHAVE: Impede que o clique no botão ative o link do card
+  const stopTrigger = (e: React.MouseEvent) => {
+    e.stopPropagation() // Impede de subir para o <a>
+  }
+
+  async function handleLike(e: React.MouseEvent) {
+    e.preventDefault() // Impede a navegação do link
+    e.stopPropagation()
+    
     if (!user) {
       alert('Faça login para salvar seus jogos favoritos!')
       return
@@ -49,7 +55,6 @@ export default function GameCard({ game, index, hideLike}: Props) {
     const newLiked = !liked
     setLiked(newLiked)
 
-    // Salva exclusivamente no Supabase
     if (newLiked) {
       await addFavorite(game)
     } else {
@@ -57,11 +62,13 @@ export default function GameCard({ game, index, hideLike}: Props) {
     }
     
     window.dispatchEvent(new Event('favoritesUpdated'))
-
     setLikeLoading(false)
   }
 
-  async function handleRate(star: number) {
+  async function handleRate(e: React.MouseEvent, star: number) {
+    e.preventDefault() // Impede a navegação do link
+    e.stopPropagation()
+
     if (!user) {
       alert('Faça login para avaliar os jogos!')
       return
@@ -71,7 +78,6 @@ export default function GameCard({ game, index, hideLike}: Props) {
     setUserRating(newRating)
     setRatingDone(newRating > 0)
 
-    // Salva exclusivamente no Supabase
     if (newRating === 0) {
       await removeRating(game.title)
     } else {
@@ -81,59 +87,74 @@ export default function GameCard({ game, index, hideLike}: Props) {
 
   const scoreColor = game.score >= 85 ? '#4ade80' : game.score >= 70 ? '#facc15' : '#ff3e6c'
   const ratingLabels = ['', 'Péssimo', 'Ruim', 'Ok', 'Bom', 'Incrível!']
+  const steamSearchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(game.title)}`
 
   return (
     <div className="game-card" style={{ animationDelay: `${index * 0.06}s` }}>
-      {game.image && (
-        <div className="card-image"><img src={game.image} alt={game.title} /></div>
-      )}
-      <div className="card-body">
-        <div className="card-genre">
-          <span className="genre-dot" />
-          {game.genre} {game.year ? `· ${game.year}` : ''}
-        </div>
-        <div className="card-title">{game.title}</div>
-        <div className="card-desc">{game.description}</div>
-        <div className="card-meta">
-          {game.tags.map((t) => <span key={t} className="meta-tag">{t}</span>)}
-          <span className="meta-score" style={{ color: scoreColor }}>{game.score}/100</span>
-          {!hideLike && (
-            <button
-              className={`like-btn ${liked ? 'liked' : ''}`}
-              onClick={handleLike}
-              disabled={likeLoading}
-              title={user ? (liked ? 'Remover dos favoritos' : 'Favoritar') : 'Faça login para favoritar'}
-            >
-              <Heart size={14} fill={liked ? '#ff3e6c' : 'none'} />
-            </button>
-          )}
-        </div>
-        <div className="card-rating">
-          <div className="rating-stars">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                className="star-btn"
-                onMouseEnter={() => setHoverRating(star)}
-                onMouseLeave={() => setHoverRating(0)}
-                onClick={() => handleRate(star)}
-                title={!user ? 'Faça login para avaliar' : ratingLabels[star]}
-              >
-                <Star
-                  size={15}
-                  fill={(hoverRating || userRating) >= star ? '#facc15' : 'none'}
-                  color={(hoverRating || userRating) >= star ? '#facc15' : 'var(--muted)'}
-                  strokeWidth={1.5}
-                />
-              </button>
-            ))}
+      <a 
+        href={game.steamUrl || steamSearchUrl} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="card-anchor"
+        style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+      >
+        {game.image && (
+          <div className="card-image">
+            <img src={game.image} alt={game.title} />
           </div>
-          <span className="rating-label">
-            {hoverRating ? ratingLabels[hoverRating] : ratingDone ? ratingLabels[userRating] : 'Avaliar'}
-          </span>
+        )}
+        
+        <div className="card-body">
+          <div className="card-genre">
+            <span className="genre-dot" />
+            {game.genre} {game.year ? `· ${game.year}` : ''}
+          </div>
+          <div className="card-title">{game.title}</div>
+          <div className="card-desc">{game.description}</div>
+          
+          <div className="card-meta">
+            {game.tags.map((t) => <span key={t} className="meta-tag">{t}</span>)}
+            <span className="meta-score" style={{ color: scoreColor }}>{game.score}/100</span>
+            
+            {!hideLike && (
+              <button
+                className={`like-btn ${liked ? 'liked' : ''}`}
+                onClick={handleLike}
+                onMouseDown={stopTrigger} // Proteção adicional
+                disabled={likeLoading}
+              >
+                <Heart size={14} fill={liked ? '#ff3e6c' : 'none'} />
+              </button>
+            )}
+          </div>
+
+          <div className="card-rating" onClick={stopTrigger}>
+            <div className="rating-stars">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  className="star-btn"
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={(e) => handleRate(e, star)}
+                >
+                  <Star
+                    size={15}
+                    fill={(hoverRating || userRating) >= star ? '#facc15' : 'none'}
+                    color={(hoverRating || userRating) >= star ? '#facc15' : 'var(--muted)'}
+                    strokeWidth={1.5}
+                  />
+                </button>
+              ))}
+            </div>
+            <span className="rating-label">
+              {hoverRating ? ratingLabels[hoverRating] : ratingDone ? ratingLabels[userRating] : 'Avaliar'}
+            </span>
+          </div>
+          
+          <div className="card-why">✦ {game.why}</div>
         </div>
-        <div className="card-why">✦ {game.why}</div>
-      </div>
+      </a>
     </div>
   )
 }
