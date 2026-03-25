@@ -63,8 +63,8 @@ function secureLog(level: 'info' | 'warn' | 'error', event: string, meta?: Recor
 }
 
 // ─── Validação de Entrada ────────────────────────────────────────────────────
-const MAX_MESSAGE_LENGTH = 1000  // caracteres por mensagem
-const MAX_MESSAGES = 30          // histórico máximo
+const MAX_MESSAGE_LENGTH = 4000  // caracteres por mensagem
+const MAX_MESSAGES = 20          // histórico máximo
 const MAX_TITLES = 60            // lista de jogos já vistos
 
 function validateMessages(messages: any[]): { valid: boolean; reason?: string } {
@@ -76,7 +76,7 @@ function validateMessages(messages: any[]): { valid: boolean; reason?: string } 
     if (typeof m !== 'object' || m === null)         return { valid: false, reason: 'mensagem inválida' }
     if (!['user', 'assistant'].includes(m.role))     return { valid: false, reason: 'role inválido' }
     if (typeof m.content !== 'string')               return { valid: false, reason: 'conteúdo inválido' }
-    if (m.content.length > MAX_MESSAGE_LENGTH)       return { valid: false, reason: 'mensagem longa demais' }
+    if (m.content.length > MAX_MESSAGE_LENGTH)       return { valid: false, reason: `mensagem longa demais (máximo ${MAX_MESSAGE_LENGTH} caracteres)` }
     if (m.content.trim().length === 0)               return { valid: false, reason: 'mensagem vazia' }
   }
 
@@ -321,8 +321,8 @@ Quando recomendar jogos, inclua OBRIGATORIAMENTE um bloco <games> no FINAL:
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 1500,
-        temperature: 0.7,
+        max_tokens: 2000,
+        temperature: 0.5,
         messages: [
           { role: 'system', content: fullSystemPrompt },
           ...sanitizedMessages,
