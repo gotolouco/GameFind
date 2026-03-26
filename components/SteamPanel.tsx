@@ -74,7 +74,7 @@ export default function SteamPanel() {
     setLoadingNew(true)
     setErrorNew(false)
     try {
-      const res = await fetch(`/api/steam/deals?page=${page}`)
+      const res = await fetch(`/api/steam/releases?page=${page}`)
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setReleases(data.releases || [])
