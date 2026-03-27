@@ -1,98 +1,114 @@
-# 🎮 GAMEDROP
+# 🎮 GAMEFIND
 
-Recomendador de jogos de PC com IA. Usa **Groq** (gratuito) para gerar recomendações aleatórias e a **RAWG API** para buscar jogos específicos.
+> Plataforma web de recomendação de jogos de PC impulsionada por Inteligência Artificial.
+
+O **GAMEFIND** combina uma interface moderna com múltiplas fontes de dados (Steam, RAWG, SteamSpy) e um chatbot especializado para oferecer recomendações personalizadas e relevantes.
 
 ---
 
 ## ✨ Funcionalidades
 
-- 🎲 Recomendações aleatórias por gênero via IA (Groq + LLaMA 3)
-- 🔍 Busca de jogos específicos com imagens e notas (RAWG API)
-- 📜 Histórico das últimas 10 sessões (localStorage)
-- ❤️ Favoritar jogos na sessão atual
-- 🚀 Pronto para deploy na Vercel
+- **Recomendações com IA:** Sugestões inteligentes e personalizadas utilizando a API do Groq (LLAMA 3.3 70B).
+- **Chatbot Especializado:** Assistente conversacional focado em curadoria de jogos, com múltiplas camadas de segurança e conformidade com a LGPD (anonimização de IP via hash SHA-256).
+- **Integração de Dados em Tempo Real:** Conexão direta com as APIs da Steam, SteamSpy e RAWG para buscar lançamentos, top jogados e metadados oficiais.
+- **Autenticação Segura:** Login via Email/Senha e OAuth (Google) gerenciado pelo Supabase Auth.
+- **Cloud Sync:** Sincronização e armazenamento de favoritos na nuvem utilizando Supabase (PostgreSQL) com Row Level Security (RLS).
+- **Histórico Local:** Acompanhamento das últimas sessões de recomendação e avaliações.
 
 ---
 
-## 🚀 Como rodar
+## 🛠️ Stack Tecnológica
+
+| Camada | Tecnologia | Finalidade |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js 14 + TypeScript | Interface React com App Router |
+| **Estilização** | CSS Puro | Design system customizado global |
+| **IA / LLM** | Groq API (LLAMA 3) | Geração de recomendações |
+| **Banco de Dados** | Supabase (PostgreSQL) | Armazenamento de favoritos |
+| **Autenticação** | Supabase Auth | Gestão de usuários e sessões |
+| **Deploy** | Vercel | Hospedagem e CI/CD |
+
+---
+
+## 🚀 Como rodar localmente
 
 ### 1. Clone o projeto
 ```bash
-git clone https://github.com/seu-usuario/gamedrop.git
-cd gamedrop
-```
-
-### 2. Instale as dependências
-```bash
+git clone [https://github.com/seu-usuario/gamefind.git](https://github.com/seu-usuario/gamefind.git)
+cd gamefind
 npm install
 ```
-
-### 3. Configure as variáveis de ambiente
+### 2. Configuração de Variáveis de Ambiente
 ```bash
-cp .env.local.example .env.local
+.env.local
+
+# IA - Groq (gratuito em console.groq.com)
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Imagens e busca de jogos - RAWG (gratuito em rawg.io/apidocs)
+RAWG_API_KEY=sua_chave_rawg
+
+# Steam Web API (gratuito em [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey))
+STEAM_API_KEY=sua_chave_steam
+
+# Supabase - banco de dados e autenticação (gratuito em supabase.com)
+NEXT_PUBLIC_SUPABASE_URL=[https://xxxx.supabase.co](https://xxxx.supabase.co)
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima
+
+# URL de produção necessário para OAuth funcionar na Vercel
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# Salt para anonimização de IPs (segurança/LGPD)
+IP_HASH_SALT=string_aleatoria_e_longa_aqui
 ```
 
-Edite o `.env.local` com suas chaves:
-
-```env
-GROQ_API_KEY=sua_chave_groq_aqui
-RAWG_API_KEY=sua_chave_rawg_aqui
-```
-
-#### Onde pegar as chaves (ambas gratuitas):
-- **Groq**: [console.groq.com](https://console.groq.com) → API Keys → Create Key
-- **RAWG**: [rawg.io/apidocs](https://rawg.io/apidocs) → Get API Key
-
-### 4. Rode localmente
+### 3. Rodar o Servidor
 ```bash
 npm run dev
 ```
+## 🌐 Deploy
+https://gamefind.vercel.app
 
-Acesse [http://localhost:3000](http://localhost:3000)
-
----
-
-## 🌐 Deploy na Vercel
-
-1. Suba o código no GitHub
-2. Acesse [vercel.com](https://vercel.com) e conecte o repositório
-3. Em **Settings → Environment Variables**, adicione:
-   - `GROQ_API_KEY`
-   - `RAWG_API_KEY`
-4. Clique em **Deploy**
-
-Seu site ficará disponível em `gamedrop.vercel.app` (ou domínio personalizado).
-
----
-
-## 🗂️ Estrutura do projeto
-
-```
-gamedrop/
+## 🗂️ Estrutura do Projeto (App Router)
+```bash
+gamefind/
 ├── app/
-│   ├── page.tsx               ← página principal
-│   ├── layout.tsx             ← layout global
-│   ├── globals.css            ← todos os estilos
-│   └── api/
-│       ├── recommend/route.ts ← Groq API (recomendações)
-│       └── search/route.ts    ← RAWG API (busca)
+│   ├── api/
+│   │   ├── chat/route.ts        # Chatbot com segurança LGPD
+│   │   ├── recommend/route.ts   # Recomendações aleatórias por gênero
+│   │   ├── search/route.ts      # Busca de jogos via RAWG
+│   │   └── steam/               # Lançamentos, novidades e top jogados
+│   ├── auth/callback/route.ts   # Callback OAuth (Google)
+│   ├── globals.css              # Design system completo
+│   ├── layout.tsx               # Layout raiz com AuthProvider 
+│   └── page.tsx                 # Página principal
 ├── components/
-│   ├── GameCard.tsx           ← card de jogo
-│   ├── GenrePills.tsx         ← seletor de gênero
-│   ├── SearchBar.tsx          ← busca de jogos
-│   └── HistoryPanel.tsx       ← histórico de sessões
+│   ├── AuthModal.tsx            # Modal login/cadastro/recuperação
+│   ├── ChatPanel.tsx            # Interface do chatbot
+│   ├── GameCard.tsx             # Card de jogo com avaliação
+│   ├── SteamPanel.tsx           # Painel de integração Steam
+│   └── ...                      # Outros componentes de UI
 ├── lib/
-│   └── history.ts             ← lógica de histórico (localStorage)
-├── .env.local.example         ← modelo de variáveis de ambiente
-└── README.md
+│   ├── favorites.ts             # CRUD de favoritos (Supabase)
+│   ├── history.ts               # Histórico (Supabase)
+│   ├── supabase.ts              # Cliente Supabase
+│   └── prompts.ts               # system prompt
+└── .env.local.example           # Template de variáveis
 ```
+## 🛡️ Segurança e Banco de Dados
 
----
+- Row Level Security (RLS): A tabela favorites no Supabase possui políticas rigorosas garantindo que cada usuário acesse, modifique ou delete apenas seus próprios dados (auth.uid() = user_id).
 
-## 🛠️ Stack
+- Conformidade LGPD: O chatbot opera com anonimização de IP (hash SHA-256 com salt) e não armazena logs com dados pessoais. O histórico de sessões é local (localStorage).
 
-- **Next.js 14** (App Router)
-- **TypeScript**
-- **Groq API** (LLaMA 3 70B) — recomendações por IA
-- **RAWG API** — banco de dados de jogos
-- **CSS puro** — sem Tailwind, estilo próprio
+- Rate Limiting: A API do chatbot limita requisições (20 req/min por IP) para evitar abusos.
+
+## 🗺️ Roadmap Futuro
+
+- Alta Prioridade: Perfil do usuário (Avatar, bio, lista pública de favoritos), Exportar favoritos (JSON ou CSV) e Otimização Mobile (UI perfeita em dispositivos móveis).
+
+
+- Média Prioridade: Compartilhar lista (Link público) e Filtros avançados (preço, ano, nota Metacritic).
+
+
+- Baixa Prioridade: PWA (App instalável), Notificações de promoções, Integração GOG e um pequeno Assistente virtual.
