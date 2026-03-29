@@ -91,6 +91,7 @@ gamefind/
 ├── lib/
 │   ├── favorites.ts             # CRUD de favoritos (Supabase)
 │   ├── history.ts               # Histórico (Supabase)
+|   ├── ModalContext.ts          
 │   ├── supabase.ts              # Cliente Supabase
 │   └── prompts.ts               # system prompt
 └── .env.local.example           # Template de variáveis
