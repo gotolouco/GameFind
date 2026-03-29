@@ -11,13 +11,14 @@ interface Props {
 }
 
 export default function HistoryPanel({ onClose }: Props) {
-  // Mantemos o useAuth apenas para saber se mostramos a mensagem de "Faça login"
   const { user } = useAuth() 
   const [historyTab, setHistoryTab] = useState<HistoryTab>('sessions')
   const [history, setHistory] = useState<HistorySession[]>([])
   const [ratings, setRatings] = useState<Record<string, number>>({})
   const [expanded, setExpanded] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showConfirmClearFavorites, setShowConfirmClearFavorites] = useState(false)
+  const [showConfirmClearHistory, setShowConfirmClearHistory] = useState(false)
 
   const ratingLabels = ['', 'Péssimo', 'Ruim', 'Ok', 'Bom', 'Incrível!']
 
@@ -25,7 +26,6 @@ export default function HistoryPanel({ onClose }: Props) {
     async function loadData() {
       if (user) {
         setLoading(true)
-        // Chamadas limpas, sem precisar passar o user.id!
         const [fetchedHistory, fetchedRatings] = await Promise.all([
           getHistory(),
           getRatings()
@@ -39,23 +39,52 @@ export default function HistoryPanel({ onClose }: Props) {
   }, [user, historyTab])
 
   async function handleClearSessions() {
-    if (!user) return
-    await clearHistory() // Sem user.id
-    setHistory([])
+
+    try {
+      await clearHistory()
+      setHistory([])
+      setShowConfirmClearHistory(false)
+    } catch (error) {
+      console.error("Erro ao limpar histórico:", error)
+    }
   }
 
-  async function handleClearRatings() {
-    if (!user) return
-    await clearAllRatings() // Sem user.id
-    setRatings({})
+async function handleClearRatings() {
+    try {
+      await clearAllRatings()
+      Object.keys(ratings).forEach(title => {
+        window.dispatchEvent(new CustomEvent('ratingSync', { 
+          detail: { title: title, rating: 0 } 
+        }))
+      })
+      setRatings({})
+      setShowConfirmClearFavorites(false)
+    } catch (error) {
+      console.error("Erro ao limpar todas as avaliações:", error)
+    }
   }
 
-  async function handleRemoveRating(title: string) {
-    if (!user) return
-    await removeRating(title) // Apenas o título do jogo
-    const updated = { ...ratings }
-    delete updated[title]
-    setRatings(updated)
+async function handleRemoveRating(title: string) {
+    try {
+      // 1. Remove da base de dados (Supabase)
+      await removeRating(title)
+
+      // 2. DISPARA O EVENTO: Avisa o GameCard na página principal para despintar as estrelas!
+      // (Passamos rating: 0 porque a avaliação foi excluída)
+      window.dispatchEvent(new CustomEvent('ratingSync', { 
+        detail: { title: title, rating: 0 } 
+      }))
+
+      // 3. Atualiza o estado visual local do próprio Menu para a linha sumir imediatamente
+      setRatings(prev => {
+        const updated = { ...prev }
+        delete updated[title] // Remove a chave do jogo do objeto de avaliações
+        return updated
+      })
+      
+    } catch (error) {
+      console.error("Erro ao remover avaliação do histórico:", error)
+    }
   }
 
   const ratedGames = Object.entries(ratings).sort((a, b) => b[1] - a[1])
@@ -104,7 +133,7 @@ export default function HistoryPanel({ onClose }: Props) {
                 <div className="history-header">
                   <span className="history-title"><Clock size={14} /> Histórico de sessões</span>
                   {history.length > 0 && (
-                    <button className="history-clear" onClick={handleClearSessions}>
+                    <button className="history-clear" onClick={() => setShowConfirmClearHistory(true)}>
                       <Trash2 size={12} /> Limpar
                     </button>
                   )}
@@ -156,7 +185,7 @@ export default function HistoryPanel({ onClose }: Props) {
                 <div className="history-header">
                   <span className="history-title"><Star size={14} /> Meus jogos avaliados</span>
                   {ratedGames.length > 0 && (
-                    <button className="history-clear" onClick={handleClearRatings}>
+                    <button className="history-clear" onClick={() => setShowConfirmClearFavorites(true)}>
                       <Trash2 size={12} /> Limpar
                     </button>
                   )}
@@ -196,6 +225,70 @@ export default function HistoryPanel({ onClose }: Props) {
           </div>
         )}
       </div>
+
+      {/* MODAL DE CONFIRMAÇÃO LIMPAR AVALIAÇÕES*/}
+      {showConfirmClearFavorites && (
+        <div 
+          className="auth-overlay confirm-overlay" 
+          onClick={() => setShowConfirmClearFavorites(false)}
+        >
+          <div 
+            className="favorites-modal confirm-dialog"
+            onClick={e => e.stopPropagation()} 
+          >
+            <h3 className="confirm-title">
+              <Trash2 size={20} /> Atenção
+            </h3>
+            <p className="confirm-text">
+              Tem a certeza de que deseja apagar <strong>todas</strong> as suas avaliações? Esta ação não pode ser desfeita.
+            </p>
+            
+            <div className="confirm-actions">
+              <button
+                onClick={() => setShowConfirmClearFavorites(false)}
+                className="confirm-btn-cancel"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleClearRatings}
+                className="confirm-btn-danger"
+              >
+                Sim, apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO LIMPAR HISTÓRICO*/}
+      {showConfirmClearHistory && (
+        <div 
+          className="auth-overlay confirm-overlay" 
+          onClick={() => setShowConfirmClearHistory(false)}
+        >
+          <div 
+            className="favorites-modal confirm-dialog"
+            onClick={e => e.stopPropagation()} 
+          >
+            <h3 className="confirm-title">
+              <Trash2 size={20} /> Atenção
+            </h3>
+            <p className="confirm-text">
+              Tem a certeza de que deseja apagar <strong>todo</strong> o seu histórico de sessões? Esta ação não pode ser desfeita.
+            </p>
+            <div className="confirm-actions">
+              <button onClick={() => setShowConfirmClearHistory(false)} className="confirm-btn-cancel">
+                Cancelar
+              </button>
+              <button onClick={handleClearSessions} className="confirm-btn-danger">
+                Sim, apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

@@ -69,7 +69,7 @@ export async function isFavorited(title: string): Promise<boolean> {
     .from('favorites')
     .select('id')
     .eq('title', title)
-    .single()
+    .maybeSingle()
 
   return !!data
 }

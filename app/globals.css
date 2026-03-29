@@ -2623,3 +2623,77 @@ h1 {
     display: none; /* Chrome, Safari, Edge */
   }
 }
+
+
+/* =========================================
+            MODAL DE CONFIRMAÇÃO
+   ========================================= */
+.confirm-overlay {
+  z-index: 1000;
+}
+
+.confirm-dialog {
+  max-width: 320px;
+  text-align: center;
+  padding: 32px 24px;
+  background: #0c0c10;       
+  box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.5);
+}
+
+.confirm-title {
+  margin-bottom: 12px;
+  color: #ff3e6c;               
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;            
+}
+
+.confirm-text {
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+  color: #8e8e9e;            
+  line-height: 1.4;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.confirm-btn-cancel {
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid #22222a;   
+  color: #8e8e9e;
+  border-radius: 60px;          
+  cursor: pointer;
+  font-weight: 500;
+  flex: 1;
+  transition: all 0.2s ease;
+}
+
+.confirm-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border-color: #ff3e6c;     
+}
+
+.confirm-btn-danger {
+  padding: 10px 16px;
+  background: #ff3e6c;
+  border: none;
+  color: #fff;
+  border-radius: 60px;         
+  cursor: pointer;
+  font-weight: bold;
+  flex: 1;
+  transition: all 0.2s ease;
+}
+
+.confirm-btn-danger:hover {
+  background: #e63660;
+  box-shadow: 0 0 12px rgba(255, 62, 108, 0.4);
+}

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Heart, Star } from 'lucide-react'
 import { useAuth } from './AuthProvider'
+import { useModal } from '@/lib/ModalContext' // <-- Importa o hook do modal
 import { Game, saveRating, removeRating, getRatings } from '@/lib/history' 
 import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
 
@@ -13,13 +14,17 @@ interface Props {
 
 export default function GameCard({ game, index, hideLike}: Props) {
   const { user } = useAuth()
+  const { openAuthModal } = useModal() // <-- Instancia a função de abrir o modal
+
   const [liked, setLiked] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)
   const [userRating, setUserRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [ratingDone, setRatingDone] = useState(false)
 
-  useEffect(() => {
+  // ATUALIZAÇÃO AQUI: Implementação do listener com Pub/Sub
+useEffect(() => {
+    // Busca inicial ao carregar o ecrã (roda apenas 1 vez)
     if (user) {
       getRatings().then(ratings => {
         if (ratings[game.title]) { 
@@ -33,19 +38,43 @@ export default function GameCard({ game, index, hideLike}: Props) {
       setRatingDone(false)
       setLiked(false)
     }
+
+    // OUVINTE 1: Sincroniza os Favoritos
+    const syncFavorite = (e: Event) => {
+      const event = e as CustomEvent<{ title: string; isLiked: boolean }>
+      if (event.detail.title === game.title) {
+        setLiked(event.detail.isLiked)
+      }
+    }
+
+    // OUVINTE 2: Sincroniza as Avaliações (NOVO)
+    const syncRating = (e: Event) => {
+      const event = e as CustomEvent<{ title: string; rating: number }>
+      if (event.detail.title === game.title) {
+        setUserRating(event.detail.rating)
+        setRatingDone(event.detail.rating > 0)
+      }
+    }
+
+    window.addEventListener('favoriteSync', syncFavorite)
+    window.addEventListener('ratingSync', syncRating) // <-- Começa a escutar
+
+    return () => {
+      window.removeEventListener('favoriteSync', syncFavorite)
+      window.removeEventListener('ratingSync', syncRating) // <-- Limpa ao fechar
+    }
   }, [game.title, user])
 
-  // FUNÇÃO CHAVE: Impede que o clique no botão ative o link do card
   const stopTrigger = (e: React.MouseEvent) => {
-    e.stopPropagation() // Impede de subir para o <a>
+    e.stopPropagation() 
   }
 
-  async function handleLike(e: React.MouseEvent) {
-    e.preventDefault() // Impede a navegação do link
+async function handleLike(e: React.MouseEvent) {
+    e.preventDefault() 
     e.stopPropagation()
     
     if (!user) {
-      alert('Faça login para salvar seus jogos favoritos!')
+      openAuthModal()
       return
     }
     
@@ -53,36 +82,76 @@ export default function GameCard({ game, index, hideLike}: Props) {
     setLikeLoading(true)
     
     const newLiked = !liked
-    setLiked(newLiked)
+    setLiked(newLiked) // Atualização Otimista local
 
-    if (newLiked) {
-      await addFavorite(game)
-    } else {
-      await removeFavorite(game.title)
+    // AVISA OS OUTROS CARDS INSTANTANEAMENTE (sem esperar pela base de dados)
+    window.dispatchEvent(new CustomEvent('favoriteSync', { 
+      detail: { title: game.title, isLiked: newLiked } 
+    }))
+
+    try {
+      if (newLiked) {
+        await addFavorite(game)
+      } else {
+        await removeFavorite(game.title)
+      }
+      // Mantemos este evento antigo caso o seu Menu de Utilizador o use para contar os favoritos
+      window.dispatchEvent(new Event('favoritesUpdated')) 
+    } catch (error) {
+      // Rollback se a API falhar
+      setLiked(!newLiked)
+      window.dispatchEvent(new CustomEvent('favoriteSync', { 
+        detail: { title: game.title, isLiked: !newLiked } 
+      }))
+      console.error("Erro ao processar favorito:", error)
+    } finally {
+      setLikeLoading(false)
     }
-    
-    window.dispatchEvent(new Event('favoritesUpdated'))
-    setLikeLoading(false)
   }
 
-  async function handleRate(e: React.MouseEvent, star: number) {
-    e.preventDefault() // Impede a navegação do link
+async function handleRate(e: React.MouseEvent, star: number) {
+    e.preventDefault() 
     e.stopPropagation()
 
     if (!user) {
-      alert('Faça login para avaliar os jogos!')
+      openAuthModal()
       return
     }
 
     const newRating = userRating === star ? 0 : star
+    const previousRating = userRating // Guardamos para caso a API falhe
+    
+    // 1. Atualização Otimista Local
     setUserRating(newRating)
     setRatingDone(newRating > 0)
 
-    if (newRating === 0) {
-      await removeRating(game.title)
-    } else {
-      await saveRating(game.title, newRating)
+    // 2. DISPARA O EVENTO: Avisa imediatamente o Menu de Histórico (se estiver aberto)
+    window.dispatchEvent(new CustomEvent('ratingSync', { 
+      detail: { title: game.title, rating: newRating } 
+    }))
+
+    try {
+      if (newRating === 0) {
+        await removeRating(game.title)
+      } else {
+        await saveRating(game.title, newRating)
+      }
+    } catch (error) {
+      // 3. Rollback se a API/Internet falhar
+      console.error("Erro ao salvar avaliação:", error)
+      setUserRating(previousRating)
+      setRatingDone(previousRating > 0)
+      
+      // Avisa os outros para desfazerem também
+      window.dispatchEvent(new CustomEvent('ratingSync', { 
+        detail: { title: game.title, rating: previousRating } 
+      }))
     }
+  }
+
+  // Função nova: Impede que o mobile simule o hover se estiver deslogado
+  const handleStarHover = (star: number) => {
+    if (user) setHoverRating(star)
   }
 
   const scoreColor = game.score >= 85 ? '#4ade80' : game.score >= 70 ? '#facc15' : '#ff3e6c'
@@ -120,7 +189,7 @@ export default function GameCard({ game, index, hideLike}: Props) {
               <button
                 className={`like-btn ${liked ? 'liked' : ''}`}
                 onClick={handleLike}
-                onMouseDown={stopTrigger} // Proteção adicional
+                onMouseDown={stopTrigger}
                 disabled={likeLoading}
               >
                 <Heart size={14} fill={liked ? '#ff3e6c' : 'none'} />
@@ -134,7 +203,7 @@ export default function GameCard({ game, index, hideLike}: Props) {
                 <button
                   key={star}
                   className="star-btn"
-                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseEnter={() => handleStarHover(star)} // <-- Usando a função protegida
                   onMouseLeave={() => setHoverRating(0)}
                   onClick={(e) => handleRate(e, star)}
                 >
