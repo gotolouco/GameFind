@@ -1835,25 +1835,97 @@ h1 {
   margin-bottom: 1.2rem;
 }
 
+/* Registro da variável para animar o gradiente de forma fluida */
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Base do botão */
 .auth-google {
-  width: 100%;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-family: 'Space Mono', monospace;
-  font-size: 0.7rem;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  background-color: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
   cursor: pointer;
-  transition: border-color 0.2s;
-  margin-bottom: 1rem;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+/* Garante que o conteúdo fique sempre acima da animação */
+.auth-google svg,
+.auth-google .auth-google-text {
+  position: relative;
+  z-index: 3; 
+}
+
+/* O Gradiente Giratório (Invisível por padrão) */
+.auth-google::before {
+  content: '';
+  position: absolute;
+  inset: -4px; 
+  border-radius: 12px; 
+  
+  background: conic-gradient(
+    from var(--angle),
+    #4285F4 0%,  
+    #34A853 25%,
+    #FBBC05 50%,  
+    #EA4335 75%, 
+    #4285F4 100%  
+  );
+  
+  z-index: 1; 
+  opacity: 0; 
+  filter: blur(8px); 
+  transition: opacity 0.4s ease;
+}
+
+/* A Tampa Interna (Cria o aspecto de 'borda') */
+.auth-google::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background-color: #1a1a2e; 
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* Estados de Hover */
+.auth-google:hover::before,
+.auth-google:hover::after {
+  opacity: 1;
 }
 
 .auth-google:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+  /* Remove a borda estática no hover para não conflitar com a animada */
+  border-color: transparent; 
+}
+
+.auth-google:hover::before {
+  animation: google-spin 3s linear infinite;
+}
+
+/* Keyframe de rotação */
+@keyframes google-spin {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+/* Acessibilidade: Desativa animação se o usuário tiver sensibilidade a movimento */
+@media (prefers-reduced-motion: reduce) {
+  .auth-google:hover::before {
+    animation: none;
+  }
 }
 
 .auth-divider {
