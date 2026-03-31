@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
-import { ModalProvider } from '@/lib/ModalContext'
+import { ModalProvider } from '@/components/ModalContext'
 
 export const metadata: Metadata = {
   title: 'GAMEFIND — Recomendador de Jogos',

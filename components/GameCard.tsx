@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Heart, Star } from 'lucide-react'
 import { useAuth } from './AuthProvider'
-import { useModal } from '@/lib/ModalContext' // <-- Importa o hook do modal
+import { useModal } from '@/components/ModalContext' // <-- Importa o hook do modal
 import { Game, saveRating, removeRating, getRatings } from '@/lib/history' 
 import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
 
