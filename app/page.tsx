@@ -28,7 +28,7 @@ export default function Home() {
   async function getRecs() {
     setLoading(true); setError(false); setGames([])
     try {
-      const res = await fetch('/api/recommend', {
+      const res = await fetch('/api/pc_gaming/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ genre, previousTitles }),

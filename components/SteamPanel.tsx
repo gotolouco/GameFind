@@ -59,7 +59,7 @@ export default function SteamPanel() {
     setLoadingTop(true)
     setErrorTop(false)
     try {
-      const res = await fetch('/api/steam/top')
+      const res = await fetch('/api/pc_gaming/steam/top')
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setTopGames(data.games)
@@ -74,7 +74,7 @@ export default function SteamPanel() {
     setLoadingNew(true)
     setErrorNew(false)
     try {
-      const res = await fetch(`/api/steam/releases?page=${page}`)
+      const res = await fetch(`/api/pc_gaming/steam/releases?page=${page}`)
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setReleases(data.releases || [])
@@ -90,7 +90,7 @@ export default function SteamPanel() {
 
   async function fetchTopAndReturn(): Promise<TopGame[]> {
     try {
-      const res = await fetch('/api/steam/top')
+      const res = await fetch('/api/pc_gaming/steam/top')
       const data = await res.json()
       setTopGames(data.games)
       return data.games
@@ -103,7 +103,7 @@ export default function SteamPanel() {
     setErrorRec(false)
     setRecGames([])
     try {
-      const res = await fetch('/api/steam/recommend', {
+      const res = await fetch('/api/pc_gaming/steam/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topGames: games.slice(0, 12), previousTitles }),

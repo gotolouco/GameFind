@@ -15,7 +15,7 @@ export default function SearchBar() {
     setLoading(true)
     setSearched(true)
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      const res = await fetch(`/api/pc_gaming/search?q=${encodeURIComponent(query)}`)
       const data = await res.json()
       setResults(data.games || [])
     } catch {
