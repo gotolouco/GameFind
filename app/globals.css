@@ -726,6 +726,14 @@ h1 {
   white-space: nowrap;
 }
 
+.steam-tab svg {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.steam-tab:hover svg {
+  transform: scale(1.1);
+}
+
 .steam-tab:hover {
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.2);
@@ -733,8 +741,9 @@ h1 {
 
 .steam-tab.active {
   background: rgba(0, 229, 255, 0.08);
-  border-color: var(--accent3);
+  border-color: linear-gradient(to bottom,  #2a475e 0%, #66c0f4 100%);
   color: var(--accent3);
+  box-shadow: inset 0 -1px 3px rgba(0,0,0,0.2);
 }
 
 .steam-loading {

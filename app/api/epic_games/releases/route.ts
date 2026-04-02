@@ -6,15 +6,15 @@ export async function GET(req: Request) {
   const page = parseInt(searchParams.get('page') || '1', 10)
 
   try {
-const data = await fetchStoreGames({
+    const data = await fetchStoreGames({
       page, 
-      storeId: '1', 
+      storeId: '11',
       platformIds: '4',
-      generateStoreUrl: (gameName) => `https://store.steampowered.com/search/?term=${encodeURIComponent(gameName)}`
+      generateStoreUrl: (gameName) => `https://store.epicgames.com/pt-BR/browse?q=${encodeURIComponent(gameName)}`
     })
     return NextResponse.json(data)
   } catch (err) {
-    console.error('❌ Error na Steam:', err)
+    console.error('❌ Error na Epic Games:', err)
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
