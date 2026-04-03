@@ -1548,12 +1548,13 @@ h1 {
 
 /* Input */
 .chat-input-wrap {
+  flex-shrink: 0;
   display: flex;
+  align-items: center;
   gap: 0.5rem;
-  align-items: flex-end;
-  margin-top: 1rem;
-  background: var(--bg);
-  padding: 0.5rem 0;
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+  z-index: 10;
 }
 
 .chat-input-sticky {
@@ -1609,6 +1610,7 @@ h1 {
   opacity: 0.5;
 }
 
+/* Send button */
 .chat-send {
   background: linear-gradient(135deg, var(--accent2), var(--accent));
   border: none;
