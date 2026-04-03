@@ -9,8 +9,10 @@ import SteamPanel from '@/components/SteamPanel'
 import ChatPanel from '@/components/ChatPanel'
 import UserMenu from '@/components/UserMenu'
 import AuthModal from '@/components/AuthModal'
+import RatingsPanel from '@/components/RatingsPanel'
 import FavoritesPanel from '@/components/FavoritesPanel'
 import { saveSession, Game } from '@/lib/history'
+
 
 type Tab = 'recommend' | 'search' | 'history' | 'steam' | 'chat'
 
@@ -23,6 +25,7 @@ export default function Home() {
   const [previousTitles, setPreviousTitles] = useState<string[]>([])
   const [showAuth, setShowAuth] = useState(false)
   const [showFavorites, setShowFavorites] = useState(false)
+  const [showRatingsPanel, setShowRatingsPanel] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
   async function getRecs() {
@@ -50,7 +53,7 @@ export default function Home() {
     <div className="container">
       <header>
         <div className="header-top">
-          <UserMenu onOpenAuth={() => setShowAuth(true)} onOpenFavorites={() => setShowFavorites(true)} onOpenHistory={() => setShowHistory(true)} />
+          <UserMenu onOpenAuth={() => setShowAuth(true)} onOpenFavorites={() => setShowFavorites(true)} onOpenRatings={() => setShowRatingsPanel(true)} onOpenHistory={() => setShowHistory(true)} />
         </div>
         <h1>GAMEFIND</h1>
         <p className="subtitle">// recomendações aleatórias por IA //</p>
@@ -108,6 +111,7 @@ export default function Home() {
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
       {showFavorites && <FavoritesPanel onClose={() => setShowFavorites(false)} />}
       {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} />}
+      {showRatingsPanel && (<RatingsPanel onClose={() => setShowRatingsPanel(false)} />)}
     </div>
   )
 }
