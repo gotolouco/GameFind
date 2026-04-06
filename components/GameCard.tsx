@@ -16,7 +16,6 @@ interface Props {
 export default function GameCard({ game, index, hideLike}: Props) {
   const { user } = useAuth()
   const { openAuthModal } = useModal() 
-
   const [liked, setLiked] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)
   const [userRating, setUserRating] = useState(0)

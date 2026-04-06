@@ -17,7 +17,7 @@ async function getSteamData(title: string) {
         // Imagem oficial da CDN da Steam (Header horizontal padrão)
         image: `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
         // Link direto e garantido para a página do jogo
-        steamUrl: `https://store.steampowered.com/app/${appid}`,
+        storeUrl: `https://store.steampowered.com/app/${appid}`,
         // Caso queira usar o score real da Steam em vez do da IA
         steamScore: game.metascore || null
       }
@@ -26,13 +26,13 @@ async function getSteamData(title: string) {
     // Fallback caso não encontre o jogo específico
     return {
       image: null,
-      steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`
+      storeUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`
     }
   } catch (error) {
     console.error(`Erro ao buscar Steam Data para ${title}:`, error)
     return {
       image: null,
-      steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`
+      storeUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`
     }
   }
 }
@@ -114,7 +114,7 @@ Regras:
         return {
           ...game,
           image: steamDetails.image,
-          steamUrl: steamDetails.steamUrl,
+          storeUrl: steamDetails.storeUrl,
           // Opcional: usar o score real da Steam se disponível
           score: steamDetails.steamScore || game.score 
         }

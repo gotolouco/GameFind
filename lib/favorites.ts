@@ -5,6 +5,7 @@ export interface FavoriteGame extends Game {
   id?: string
   user_id?: string
   created_at?: string
+  storeUrl?: string
 }
 
 // Busca todos os favoritos do usuário logado
@@ -19,7 +20,11 @@ export async function getFavorites(): Promise<FavoriteGame[]> {
     console.error('Erro ao buscar favoritos:', error)
     return []
   }
-  return data || []
+
+return (data || []).map((dbGame: any) => ({
+    ...dbGame,
+    storeUrl: dbGame.store_url || dbGame.storeUrl || dbGame.steamUrl || null
+  }))
 }
 
 // Adiciona um jogo aos favoritos
@@ -38,6 +43,7 @@ export async function addFavorite(game: FavoriteGame): Promise<boolean> {
     tags: game.tags,
     why: game.why,
     image: game.image || null,
+    store_url: game.storeUrl || null,
   })
 
   if (error) {
