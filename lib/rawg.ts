@@ -1,34 +1,50 @@
-/* Este arquivo contém a função genérica para buscar jogos de uma loja usando a API RAWG.*/
-
-/* FetchStoreGamesParams é a interface que define os parâmetros necessários para a função fetchStoreGames. Ela inclui:
-- page: o número da página a ser buscada.
-- storeId: o ID da loja
-- platformIds: os IDs das plataformas
-- generateStoreUrl: uma função que recebe o nome do jogo e retorna a URL da loja para esse jogo. */
-
-interface FetchStoreGamesParams {
-  page: number
-  storeId: string
-  platformIds: string
-  generateStoreUrl: (gameName: string) => string
+// Interfaces para garantir o Type Safety da resposta da API da RAWG
+interface RawgGenre {
+  id: number;
+  name: string;
+  slug: string;
 }
 
-/* A função fetchStoreGames é uma função assíncrona que busca jogos de uma loja específica usando a API RAWG. 
-Ela recebe um objeto com os parâmetros definidos na interface FetchStoreGamesParams e retorna um objeto contendo os jogos encontrados, 
-informações de paginação e o total de jogos. */
+interface RawgGame {
+  id: number;
+  name: string;
+  released: string | null;
+  background_image: string | null;
+  genres?: RawgGenre[];
+  metacritic: number | null;
+  ratings_count: number;
+  rating: number;
+}
+
+interface FetchStoreGamesParams {
+  page: number;
+  storeId: string;
+  platformIds: string;
+  generateStoreUrl: (gameName: string) => string;
+}
+
+/*Tags Banidas */
+const BANNED_TERMS = [
+  'nsfw', 'adult', 'sexual-content', 'hentai', 'gore',
+  'erotic', 'sexual', 'porn', 'sex'
+];
+
 export async function fetchStoreGames({
   page,
   storeId,
   platformIds,
   generateStoreUrl
 }: FetchStoreGamesParams) {
-  const pageSize = 12
-  const rawgKey = process.env.RAWG_API_KEY
   
-  const today = new Date().toISOString().split('T')[0]
-  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // A RAWG tem um limite de 20 itens por página, mas para garantir que tenhamos pelo menos 12 jogos "seguros" para mostrar, pedimos 18.
+  const FRONTEND_PAGE_SIZE = 12; 
+  const RAWG_PAGE_SIZE = 18;     
+  
+  const rawgKey = process.env.RAWG_API_KEY;
+  const today = new Date().toISOString().split('T')[0];
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const baseUrl = 'https://api.rawg.io/api/games'
+  const baseUrl = 'https://api.rawg.io/api/games';
     
   const query = new URLSearchParams({
     platforms: platformIds,
@@ -36,25 +52,40 @@ export async function fetchStoreGames({
     ordering: '-released',
     dates: `${sixMonthsAgo},${today}`,
     page: page.toString(),
-    page_size: pageSize.toString(),
-    exclude_additions: 'true'
-  })
+    page_size: RAWG_PAGE_SIZE.toString(), // Pedindo 18
+    exclude_additions: 'true',
+    exclude_tags: BANNED_TERMS.join(',')
+  });
 
-  if (rawgKey) {
-    query.append('key', rawgKey)
-  }
+  if (rawgKey) query.append('key', rawgKey);
 
-  const url = `${baseUrl}?${query.toString()}`
+  const url = `${baseUrl}?${query.toString()}`;
 
-  const res = await fetch(url, { next: { revalidate: 3600 } })
+  const res = await fetch(url, { next: { revalidate: 3600 } });
   
-  if (!res.ok) {
-    throw new Error(`A API RAWG falhou com o status: ${res.status}`)
-  }
+  if (!res.ok) throw new Error(`A API RAWG falhou com o status: ${res.status}`);
   
-  const data = await res.json()
+  const data = await res.json();
 
-  const releases = (data.results || []).map((g: any) => ({
+  // Aplica o filtro da malha fina (segurança)
+  const safeResults = (data.results || []).filter((game: any) => {
+    const titleLower = game.name.toLowerCase();
+    const hasBannedWordInTitle = BANNED_TERMS.some(term => titleLower.includes(term));
+    if (hasBannedWordInTitle) return false;
+
+    if (game.tags && Array.isArray(game.tags)) {
+      const hasBannedTag = game.tags.some((tag: any) => 
+        BANNED_TERMS.includes(tag.slug.toLowerCase()) || 
+        BANNED_TERMS.includes(tag.name.toLowerCase())
+      );
+      if (hasBannedTag) return false;
+    }
+    return true;
+  });
+
+  const slicedResults = safeResults.slice(0, FRONTEND_PAGE_SIZE);
+
+  const releases = slicedResults.map((g: any) => ({
     appid: g.id,
     title: g.name,
     releaseDate: g.released
@@ -72,11 +103,17 @@ export async function fetchStoreGames({
       ? `${g.ratings_count.toLocaleString('pt-BR')} avaliações`
       : null,
     rawgRating: g.rating ? `${g.rating.toFixed(1)}/5` : null,
-  }))
+  }));
 
-  const totalPages = Math.ceil((data.count || 0) / pageSize)
+  const totalPages = Math.ceil((data.count || 0) / RAWG_PAGE_SIZE);
 
-  return { releases, page, pageSize, totalPages, total: data.count }
+  return { 
+    releases, 
+    page, 
+    pageSize: FRONTEND_PAGE_SIZE, 
+    totalPages, 
+    total: data.count 
+  };
 }
 
 export async function getRawgMetadata(title: string) {
@@ -87,10 +124,8 @@ export async function getRawgMetadata(title: string) {
   }
 
   try {
-    // Fazemos uma query focada no título (search) e limitamos a 1 resultado
     const url = `https://api.rawg.io/api/games?search=${encodeURIComponent(title)}&key=${rawgKey}&page_size=1`;
     
-    // Podemos manter o revalidate (cache) alto, pois capas e notas antigas raramente mudam
     const res = await fetch(url, { next: { revalidate: 86400 } }); 
     
     if (!res.ok) {
@@ -100,7 +135,7 @@ export async function getRawgMetadata(title: string) {
     const data = await res.json();
 
     if (data.results && data.results.length > 0) {
-      const game = data.results[0];
+      const game = data.results[0] as RawgGame;
       return {
         image: game.background_image || null,
         score: game.metacritic || null 
