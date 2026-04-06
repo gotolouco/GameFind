@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GAMEFIND_SYSTEM_PROMPT } from '@/lib/prompts';
 import { getPlatformProvider } from '@/lib/providers';
+import { getRawgMetadata } from '@/lib/rawg';
 
 function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
 export async function POST(req: NextRequest) {
-  
-  const { topGames, previousTitles = [], platform = 'steam' } = await req.json();
+
+  const { topGames, previousTitles = [], platform = 'epic' } = await req.json();
 
   if (!process.env.GROQ_API_KEY) {
     return NextResponse.json({ error: 'GROQ_API_KEY não configurada' }, { status: 500 });
@@ -80,16 +81,25 @@ export async function POST(req: NextRequest) {
     const cleanJson = match[1].replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, '').trim();
     const parsedGamesArray = JSON.parse(cleanJson);
 
-    // O enriquecimento acontece independentemente de qual plataforma foi solicitada
+    // O enriquecimento agora combina a Loja escolhida com a RAWG
     const enrichedGames = await Promise.all(
       parsedGamesArray.map(async (game: any) => {
-        const metadata = await storeProvider.getGameData(game.title);
-        // Retornamos padronizado para o front-end (storeUrl substitui steamUrl)
+        
+        // 1. Vai à Epic/Steam buscar o Link da Loja
+        const storeData = await storeProvider.getGameData(game.title);
+        
+        // 2. Vai à RAWG garantir os metadados visuais
+        const rawgData = await getRawgMetadata(game.title);
+
         return { 
             ...game, 
-            image: metadata.image, 
-            storeUrl: metadata.storeUrl,
-            storeScore: metadata.score // Propriedade agnóstica de plataforma
+            // Prefere a imagem da loja; mas se vier null (como na Epic), usa a da RAWG
+            image: storeData.image || rawgData.image, 
+            
+            storeUrl: storeData.storeUrl,
+            
+            // A Epic não tem notas no endpoint; a RAWG preenche automaticamente essa lacuna
+            storeScore: storeData.score || rawgData.score 
         };
       })
     );

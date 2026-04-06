@@ -2,19 +2,20 @@
 import { useState, useEffect } from 'react'
 import { Heart, Star } from 'lucide-react'
 import { useAuth } from './AuthProvider'
-import { useModal } from '@/components/ModalContext' // <-- Importa o hook do modal
+import { useModal } from '@/components/ModalContext' 
 import { Game, saveRating, removeRating, getRatings } from '@/lib/history' 
 import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
 
 interface Props {
-  game: Game & { image?: string; steamUrl?: string }
+  // ATUALIZAÇÃO: Alterado de steamUrl para storeUrl (Agnóstico de plataforma)
+  game: Game & { image?: string | null; storeUrl?: string }
   index: number
   hideLike?: boolean
 }
 
 export default function GameCard({ game, index, hideLike}: Props) {
   const { user } = useAuth()
-  const { openAuthModal } = useModal() // <-- Instancia a função de abrir o modal
+  const { openAuthModal } = useModal() 
 
   const [liked, setLiked] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)
@@ -22,9 +23,7 @@ export default function GameCard({ game, index, hideLike}: Props) {
   const [hoverRating, setHoverRating] = useState(0)
   const [ratingDone, setRatingDone] = useState(false)
 
-  // ATUALIZAÇÃO AQUI: Implementação do listener com Pub/Sub
-useEffect(() => {
-    // Busca inicial ao carregar o ecrã (roda apenas 1 vez)
+  useEffect(() => {
     if (user) {
       getRatings().then(ratings => {
         if (ratings[game.title]) { 
@@ -39,7 +38,6 @@ useEffect(() => {
       setLiked(false)
     }
 
-    // OUVINTE 1: Sincroniza os Favoritos
     const syncFavorite = (e: Event) => {
       const event = e as CustomEvent<{ title: string; isLiked: boolean }>
       if (event.detail.title === game.title) {
@@ -47,7 +45,6 @@ useEffect(() => {
       }
     }
 
-    // OUVINTE 2: Sincroniza as Avaliações (NOVO)
     const syncRating = (e: Event) => {
       const event = e as CustomEvent<{ title: string; rating: number }>
       if (event.detail.title === game.title) {
@@ -57,11 +54,11 @@ useEffect(() => {
     }
 
     window.addEventListener('favoriteSync', syncFavorite)
-    window.addEventListener('ratingSync', syncRating) // <-- Começa a escutar
+    window.addEventListener('ratingSync', syncRating) 
 
     return () => {
       window.removeEventListener('favoriteSync', syncFavorite)
-      window.removeEventListener('ratingSync', syncRating) // <-- Limpa ao fechar
+      window.removeEventListener('ratingSync', syncRating) 
     }
   }, [game.title, user])
 
@@ -69,7 +66,7 @@ useEffect(() => {
     e.stopPropagation() 
   }
 
-async function handleLike(e: React.MouseEvent) {
+  async function handleLike(e: React.MouseEvent) {
     e.preventDefault() 
     e.stopPropagation()
     
@@ -82,9 +79,8 @@ async function handleLike(e: React.MouseEvent) {
     setLikeLoading(true)
     
     const newLiked = !liked
-    setLiked(newLiked) // Atualização Otimista local
+    setLiked(newLiked) 
 
-    // AVISA OS OUTROS CARDS INSTANTANEAMENTE (sem esperar pela base de dados)
     window.dispatchEvent(new CustomEvent('favoriteSync', { 
       detail: { title: game.title, isLiked: newLiked } 
     }))
@@ -95,10 +91,8 @@ async function handleLike(e: React.MouseEvent) {
       } else {
         await removeFavorite(game.title)
       }
-      // Mantemos este evento antigo caso o seu Menu de Utilizador o use para contar os favoritos
       window.dispatchEvent(new Event('favoritesUpdated')) 
     } catch (error) {
-      // Rollback se a API falhar
       setLiked(!newLiked)
       window.dispatchEvent(new CustomEvent('favoriteSync', { 
         detail: { title: game.title, isLiked: !newLiked } 
@@ -109,7 +103,7 @@ async function handleLike(e: React.MouseEvent) {
     }
   }
 
-async function handleRate(e: React.MouseEvent, star: number) {
+  async function handleRate(e: React.MouseEvent, star: number) {
     e.preventDefault() 
     e.stopPropagation()
 
@@ -119,13 +113,11 @@ async function handleRate(e: React.MouseEvent, star: number) {
     }
 
     const newRating = userRating === star ? 0 : star
-    const previousRating = userRating // Guardamos para caso a API falhe
+    const previousRating = userRating 
     
-    // 1. Atualização Otimista Local
     setUserRating(newRating)
     setRatingDone(newRating > 0)
 
-    // 2. DISPARA O EVENTO: Avisa imediatamente o Menu de Histórico (se estiver aberto)
     window.dispatchEvent(new CustomEvent('ratingSync', { 
       detail: { title: game.title, rating: newRating } 
     }))
@@ -137,39 +129,42 @@ async function handleRate(e: React.MouseEvent, star: number) {
         await saveRating(game.title, newRating)
       }
     } catch (error) {
-      // 3. Rollback se a API/Internet falhar
-      console.error("Erro ao salvar avaliação:", error)
+      console.error("Erro ao guardar avaliação:", error)
       setUserRating(previousRating)
       setRatingDone(previousRating > 0)
       
-      // Avisa os outros para desfazerem também
       window.dispatchEvent(new CustomEvent('ratingSync', { 
         detail: { title: game.title, rating: previousRating } 
       }))
     }
   }
 
-  // Função nova: Impede que o mobile simule o hover se estiver deslogado
   const handleStarHover = (star: number) => {
     if (user) setHoverRating(star)
   }
 
-  const scoreColor = game.score >= 85 ? '#4ade80' : game.score >= 70 ? '#facc15' : '#ff3e6c'
+  // Tratamento da cor da avaliação
+  const scoreColor = (game.score ?? 0) >= 85 ? '#4ade80' : (game.score ?? 0) >= 70 ? '#facc15' : '#ff3e6c'
   const ratingLabels = ['', 'Péssimo', 'Ruim', 'Ok', 'Bom', 'Incrível!']
-  const steamSearchUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(game.title)}`
 
   return (
     <div className="game-card" style={{ animationDelay: `${index * 0.06}s` }}>
       <a 
-        href={game.steamUrl || steamSearchUrl} 
+        // ATUALIZAÇÃO: Removido o steamSearchUrl, utilizando diretamente o storeUrl do back-end
+        href={game.storeUrl || '#'} 
         target="_blank" 
         rel="noopener noreferrer"
         className="card-anchor"
         style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
       >
-        {game.image && (
+        {/* ATUALIZAÇÃO: Prevenção de quebra de layout caso a imagem seja nula */}
+        {game.image ? (
           <div className="card-image">
             <img src={game.image} alt={game.title} />
+          </div>
+        ) : (
+          <div className="card-image" style={{ backgroundColor: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Imagem Indisponível</span>
           </div>
         )}
         
@@ -183,7 +178,11 @@ async function handleRate(e: React.MouseEvent, star: number) {
           
           <div className="card-meta">
             {game.tags.map((t) => <span key={t} className="meta-tag">{t}</span>)}
-            <span className="meta-score" style={{ color: scoreColor }}>{game.score}/100</span>
+            
+            {/* Opcional: Só exibe o score se a loja o forneceu */}
+            {game.score !== null && game.score !== undefined && (
+               <span className="meta-score" style={{ color: scoreColor }}>{game.score}/100</span>
+            )}
             
             {!hideLike && (
               <button
@@ -203,7 +202,7 @@ async function handleRate(e: React.MouseEvent, star: number) {
                 <button
                   key={star}
                   className="star-btn"
-                  onMouseEnter={() => handleStarHover(star)} // <-- Usando a função protegida
+                  onMouseEnter={() => handleStarHover(star)} 
                   onMouseLeave={() => setHoverRating(0)}
                   onClick={(e) => handleRate(e, star)}
                 >

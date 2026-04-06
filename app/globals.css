@@ -693,12 +693,12 @@ h1 {
   font-size: 0.58rem;
 }
 
-/* ===================== STEAM PANEL ===================== */
-.steam-panel {
+/* ===================== STORES PANEL ===================== */
+.stores-panel {
   margin-top: 0.5rem;
 }
 
-.steam-tabs {
+.stores-tabs {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
@@ -708,7 +708,7 @@ h1 {
   scrollbar-width: thin;
 }
 
-.steam-tab {
+.stores-tab {
   font-family: 'Space Mono', monospace;
   font-size: 0.62rem;
   letter-spacing: 0.12em;
@@ -726,27 +726,27 @@ h1 {
   white-space: nowrap;
 }
 
-.steam-tab svg {
+.stores-tab svg {
   transition: transform 0.2s ease, color 0.2s ease;
 }
 
-.steam-tab:hover svg {
+.stores-tab:hover svg {
   transform: scale(1.1);
 }
 
-.steam-tab:hover {
+.stores-tab:hover {
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.steam-tab.active {
+.stores-tab.active {
   background: rgba(0, 229, 255, 0.08);
   border-color: linear-gradient(to bottom,  #2a475e 0%, #66c0f4 100%);
   color: var(--accent3);
   box-shadow: inset 0 -1px 3px rgba(0,0,0,0.2);
 }
 
-.steam-loading {
+.stores-loading {
   text-align: center;
   font-size: 0.7rem;
   color: var(--muted);
@@ -754,7 +754,7 @@ h1 {
   letter-spacing: 0.1em;
 }
 
-.steam-error {
+.stores-error {
   text-align: center;
   padding: 1.5rem;
   border: 1px solid rgba(255, 62, 108, 0.3);
@@ -763,7 +763,7 @@ h1 {
   color: var(--accent);
 }
 
-.steam-error button {
+.stores-error button {
   background: none;
   border: none;
   color: var(--accent3);
@@ -938,8 +938,8 @@ h1 {
   margin-left: auto;
 }
 
-/* Steam AI rec header */
-.steam-rec-header {
+/* Stores AI rec header */
+.stores-rec-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -948,14 +948,14 @@ h1 {
   flex-wrap: wrap;
 }
 
-.steam-rec-desc {
+.stores-rec-desc {
   font-size: 0.7rem;
   color: var(--muted);
   line-height: 1.6;
   max-width: 500px;
 }
 
-.steam-rec-header .btn-roll {
+.stores-rec-header .btn-roll {
   padding: 12px 28px;
   font-size: 0.7rem;
   flex-shrink: 0;
@@ -1017,7 +1017,7 @@ h1 {
   color: #4ade80;
 }
 
-.deal-steam-link {
+.deal-stores-link {
   font-size: 0.6rem;
   color: var(--accent3);
   margin-left: auto;
@@ -2370,24 +2370,24 @@ h1 {
     max-width: 95%;
   }
 
-  /* Steam panel */
-  .steam-tabs {
+  /* Stores panel */
+  .stores-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
   }
 
-  .steam-tab {
+  .stores-tab {
     white-space: nowrap;
     padding: 6px 14px;
     font-size: 0.58rem;
   }
 
-  .steam-rec-header {
+  .stores-rec-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .steam-rec-header .btn-roll {
+  .stores-rec-header .btn-roll {
     width: 100%;
     text-align: center;
     justify-content: center;
@@ -2576,13 +2576,13 @@ h1 {
     padding: 8px 10px;
   }
 
-  /* Steam tabs */
-  .steam-tab {
+  /* Stores tabs */
+  .stores-tab {
     padding: 5px 10px;
     font-size: 0.55rem;
   }
 
-  .steam-rec-desc {
+  .stores-rec-desc {
     font-size: 0.65rem;
   }
 
@@ -2648,7 +2648,7 @@ h1 {
   .btn-roll,
   .search-btn,
   .history-toggle,
-  .steam-tab,
+  .stores-tab,
   .page-btn,
   .like-btn,
   .star-btn,
@@ -2674,7 +2674,7 @@ h1 {
   /* Ajuste específico para itens que não precisam ser tão grandes */
   .pill,
   .tab-btn,
-  .steam-tab,
+  .stores-tab,
   .history-subtab {
     min-height: 36px;
   }
@@ -2695,13 +2695,13 @@ h1 {
 /* ===== ESCONDER SCROLLBAR DAS TABS EM DESKTOP ===== */
 @media (min-width: 769px) {
   .tabs,
-  .steam-tabs,
+  .stores-tabs,
   .history-subtabs {
     overflow-x: auto;
     scrollbar-width: none; /* Firefox */
   }
   .tabs::-webkit-scrollbar,
-  .steam-tabs::-webkit-scrollbar,
+  .stores-tabs::-webkit-scrollbar,
   .history-subtabs::-webkit-scrollbar {
     display: none; /* Chrome, Safari, Edge */
   }

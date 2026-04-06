@@ -4,20 +4,20 @@ import { Flame, Sparkles, ExternalLink, Rocket, ChevronLeft, ChevronRight } from
 import GameCard from './GameCard'
 import { Game } from '@/lib/history'
 
-type SteamTab = 'top' | 'new' | 'recommend'
+type EpicTab = 'top' | 'new' | 'recommend'
 
 interface TopGame {
-  appid: number
+  appid: number | string
   title: string
-  players2weeks: string
-  concurrent: string
+  players2weeks?: string 
+  concurrent?: string
   tags: string[]
   image: string
   storeUrl: string
 }
 
 interface Release {
-  appid: number
+  appid: number | string
   title: string
   releaseDate: string | null
   comingSoon: boolean
@@ -32,8 +32,8 @@ interface Release {
   rawgRating: string | null
 }
 
-export default function SteamPanel() {
-  const [steamTab, setSteamTab] = useState<SteamTab>('top')
+export default function EpicGamesPanel() {
+  const [epicTab, setEpicTab] = useState<EpicTab>('top')
 
   // Top games
   const [topGames, setTopGames] = useState<TopGame[]>([])
@@ -53,13 +53,14 @@ export default function SteamPanel() {
   const [loadingRec, setLoadingRec] = useState(false)
   const [errorRec, setErrorRec] = useState(false)
 
+  // Initial fetch
   useEffect(() => { fetchTop() }, [])
 
   async function fetchTop() {
     setLoadingTop(true)
     setErrorTop(false)
     try {
-      const res = await fetch('/api/pc_gaming/steam/top')
+      const res = await fetch('/api/pc_gaming/epic/top')
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setTopGames(data.games)
@@ -74,7 +75,7 @@ export default function SteamPanel() {
     setLoadingNew(true)
     setErrorNew(false)
     try {
-      const res = await fetch(`/api/pc_gaming/steam/releases?page=${page}`)
+      const res = await fetch(`/api/pc_gaming/epic/releases?page=${page}`)
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setReleases(data.releases || [])
@@ -90,7 +91,7 @@ export default function SteamPanel() {
 
   async function fetchTopAndReturn(): Promise<TopGame[]> {
     try {
-      const res = await fetch('/api/pc_gaming/steam/top')
+      const res = await fetch('/api/pc_gaming/epic/top')
       const data = await res.json()
       setTopGames(data.games)
       return data.games
@@ -103,7 +104,7 @@ export default function SteamPanel() {
     setErrorRec(false)
     setRecGames([])
     try {
-      const res = await fetch('/api/pc_gaming/steam/recommend', {
+      const res = await fetch('/api/pc_gaming/epic/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topGames: games.slice(0, 12), previousTitles }),
@@ -119,8 +120,8 @@ export default function SteamPanel() {
     }
   }
 
-  function handleTabChange(t: SteamTab) {
-    setSteamTab(t)
+  function handleTabChange(t: EpicTab) {
+    setEpicTab(t)
     if (t === 'new' && releases.length === 0) fetchReleases(1)
     if (t === 'recommend' && recGames.length === 0) fetchRecommend()
   }
@@ -128,25 +129,25 @@ export default function SteamPanel() {
   return (
     <div className="stores-panel">
       <div className="stores-tabs">
-        <button className={`stores-tab ${steamTab === 'top' ? 'active' : ''}`} onClick={() => handleTabChange('top')}>
-          <Flame size={13} /> Mais Jogados
+        <button className={`stores-tab ${epicTab === 'top' ? 'active' : ''}`} onClick={() => handleTabChange('top')}>
+          <Flame size={13} /> Destaques Epic
         </button>
-        <button className={`stores-tab ${steamTab === 'new' ? 'active' : ''}`} onClick={() => handleTabChange('new')}>
+        <button className={`stores-tab ${epicTab === 'new' ? 'active' : ''}`} onClick={() => handleTabChange('new')}>
           <Rocket size={13} /> Lançamentos
         </button>
-        <button className={`stores-tab ${steamTab === 'recommend' ? 'active' : ''}`} onClick={() => handleTabChange('recommend')}>
-          <Sparkles size={13} /> IA + Steam
+        <button className={`stores-tab ${epicTab === 'recommend' ? 'active' : ''}`} onClick={() => handleTabChange('recommend')}>
+          <Sparkles size={13} /> IA + Epic
         </button>
       </div>
 
-      {/* MAIS JOGADOS */}
-      {steamTab === 'top' && (
+      {/* MAIS POPULARES / DESTAQUES */}
+      {epicTab === 'top' && (
         <>
-          {loadingTop && <div className="stores-loading">Carregando dados da Steam...</div>}
+          {loadingTop && <div className="stores-loading">Carregando dados da Epic Games...</div>}
           {errorTop && <div className="stores-error">⚠ Falha ao carregar. <button onClick={fetchTop}>Tentar novamente</button></div>}
           {!loadingTop && !errorTop && topGames.length > 0 && (
             <>
-              <div className="section-label">Top jogos agora na Steam <span className="count-badge">{topGames.length}</span></div>
+              <div className="section-label">Top jogos agora na Epic <span className="count-badge">{topGames.length}</span></div>
               <div className="top-games-grid">
                 {topGames.map((g, i) => (
                   <a key={`${g.appid}-${i}`} href={g.storeUrl} target="_blank" rel="noopener noreferrer" className="top-game-card">
@@ -154,7 +155,8 @@ export default function SteamPanel() {
                     <img src={g.image} alt={g.title} className="top-game-img" />
                     <div className="top-game-info">
                       <div className="top-game-title">{g.title}</div>
-                      <div className="top-game-meta">👥 {g.concurrent} simultâneos</div>
+                      {/* Na Epic é mais difícil ter jogadores simultâneos públicos, podemos adaptar a meta */}
+                      {g.concurrent && <div className="top-game-meta">👥 {g.concurrent} simultâneos</div>}
                       <div className="top-game-tags">
                         {g.tags.map(t => <span key={t} className="meta-tag">{t}</span>)}
                       </div>
@@ -169,9 +171,9 @@ export default function SteamPanel() {
       )}
 
       {/* LANÇAMENTOS */}
-      {steamTab === 'new' && (
+      {epicTab === 'new' && (
         <>
-          {loadingNew && <div className="stores-loading">Buscando lançamentos da Steam...</div>}
+          {loadingNew && <div className="stores-loading">Buscando lançamentos da Epic...</div>}
           {errorNew && <div className="stores-error">⚠ Falha ao carregar lançamentos.</div>}
           {!loadingNew && !errorNew && releases.length === 0 && (
             <div className="stores-loading">Nenhum lançamento encontrado.</div>
@@ -179,7 +181,7 @@ export default function SteamPanel() {
           {!loadingNew && releases.length > 0 && (
             <>
               <div className="section-label">
-                Novidades & Lançamentos
+                Novidades & Lançamentos Epic
                 <span className="count-badge">pág. {relPage}/{relTotalPages}</span>
               </div>
               <div className="releases-grid">
@@ -232,12 +234,12 @@ export default function SteamPanel() {
         </>
       )}
 
-      {/* IA + STEAM */}
-      {steamTab === 'recommend' && (
+      {/* IA + EPIC */}
+      {epicTab === 'recommend' && (
         <>
           <div className="stores-rec-header">
             <p className="stores-rec-desc">
-              A IA analisa os jogos populares da Steam e recomenda títulos diferentes a cada rodada.
+              A IA analisa os destaques da Epic Games e recomenda títulos diferentes a cada rodada.
             </p>
             <button className="btn-roll" onClick={fetchRecommend} disabled={loadingRec}>
               {loadingRec ? '⏳ Analisando...' : '✦ NOVA RECOMENDAÇÃO'}
@@ -255,7 +257,7 @@ export default function SteamPanel() {
               <div className="loader-grid">
                 {[...Array(8)].map((_, i) => <div key={i} className="loader-cell" />)}
               </div>
-              <p>IA analisando tendências da Steam...</p>
+              <p>IA analisando tendências da Epic Games...</p>
             </div>
           )}
 
@@ -264,7 +266,7 @@ export default function SteamPanel() {
           {!loadingRec && recGames.length > 0 && (
             <>
               <div className="section-label" style={{ marginTop: '1.5rem' }}>
-                Recomendados com base na Steam <span className="count-badge">{recGames.length}</span>
+                Recomendados com base na Epic <span className="count-badge">{recGames.length}</span>
               </div>
               <div className="games-grid">
                 {recGames.map((g, i) => (

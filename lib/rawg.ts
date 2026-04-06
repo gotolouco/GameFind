@@ -78,3 +78,38 @@ export async function fetchStoreGames({
 
   return { releases, page, pageSize, totalPages, total: data.count }
 }
+
+export async function getRawgMetadata(title: string) {
+  const rawgKey = process.env.RAWG_API_KEY;
+  if (!rawgKey) {
+    console.warn('RAWG_API_KEY não configurada no .env.local');
+    return { image: null, score: null };
+  }
+
+  try {
+    // Fazemos uma query focada no título (search) e limitamos a 1 resultado
+    const url = `https://api.rawg.io/api/games?search=${encodeURIComponent(title)}&key=${rawgKey}&page_size=1`;
+    
+    // Podemos manter o revalidate (cache) alto, pois capas e notas antigas raramente mudam
+    const res = await fetch(url, { next: { revalidate: 86400 } }); 
+    
+    if (!res.ok) {
+      throw new Error(`RAWG search falhou: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if (data.results && data.results.length > 0) {
+      const game = data.results[0];
+      return {
+        image: game.background_image || null,
+        score: game.metacritic || null 
+      };
+    }
+    
+    return { image: null, score: null };
+  } catch (err) {
+    console.error(`❌ Erro na API RAWG ao buscar metadados para "${title}":`, err);
+    return { image: null, score: null };
+  }
+}
