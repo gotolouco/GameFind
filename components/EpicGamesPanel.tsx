@@ -53,6 +53,9 @@ export default function EpicGamesPanel() {
   const [loadingRec, setLoadingRec] = useState(false)
   const [errorRec, setErrorRec] = useState(false)
 
+  // Flag para controlar se o utilizador já gerou alguma recomendação nesta visualização
+  const [hasGeneratedRec, setHasGeneratedRec] = useState(false)
+
   // Initial fetch
   useEffect(() => { fetchTop() }, [])
 
@@ -103,6 +106,7 @@ export default function EpicGamesPanel() {
     setLoadingRec(true)
     setErrorRec(false)
     setRecGames([])
+
     try {
       const res = await fetch('/api/pc_gaming/epic/recommend', {
         method: 'POST',
@@ -111,8 +115,12 @@ export default function EpicGamesPanel() {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
+        
       setRecGames(data.games)
       setPreviousTitles(prev => [...prev, ...data.games.map((g: Game) => g.title)].slice(-30))
+
+      // Regista que a primeira recomendação da sessão foi feita
+      setHasGeneratedRec(true)
     } catch {
       setErrorRec(true)
     } finally {
@@ -122,8 +130,11 @@ export default function EpicGamesPanel() {
 
   function handleTabChange(t: EpicTab) {
     setEpicTab(t)
+    // Reseta o estado do botão sempre que o utilizador navega entre as abas
+    setHasGeneratedRec(false)
+    
+    // Mantém o auto-fetch apenas para a aba de Lançamentos (baixo custo/RAWG API)
     if (t === 'new' && releases.length === 0) fetchReleases(1)
-    if (t === 'recommend' && recGames.length === 0) fetchRecommend()
   }
 
   return (
@@ -242,7 +253,9 @@ export default function EpicGamesPanel() {
               A IA analisa os destaques da Epic Games e recomenda títulos diferentes a cada rodada.
             </p>
             <button className="btn-roll" onClick={fetchRecommend} disabled={loadingRec}>
-              {loadingRec ? '⏳ Analisando...' : '✦ NOVA RECOMENDAÇÃO'}
+              {loadingRec 
+                ? '⏳ Analisando...' 
+                : (hasGeneratedRec ? '✦ NOVAS RECOMENDAÇÕES' : '✦ ROLAR RECOMENDAÇÕES')}
             </button>
           </div>
 
@@ -262,6 +275,13 @@ export default function EpicGamesPanel() {
           )}
 
           {errorRec && <div className="stores-error">⚠ Erro ao gerar recomendações.</div>}
+
+          {/* Placeholder opcional para quando a lista estiver vazia e não estiver a carregar */}
+          {!loadingRec && !errorRec && recGames.length === 0 && (
+            <div className="stores-loading" style={{ opacity: 0.7, marginTop: '2rem' }}>
+              Clique no botão acima para gerar a sua primeira lista de recomendações por IA.
+            </div>
+          )}
 
           {!loadingRec && recGames.length > 0 && (
             <>
