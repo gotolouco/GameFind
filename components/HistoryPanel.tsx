@@ -20,7 +20,7 @@ export default function HistoryPanel({ onClose }: Props) {
       if (user) {
         setLoading(true)
         try {
-          const fetchedHistory = await getHistory()
+          const fetchedHistory = await getHistory(user.id)
           setHistory(fetchedHistory)
         } catch (error) {
           console.error("Erro ao carregar histórico:", error)
@@ -36,7 +36,8 @@ export default function HistoryPanel({ onClose }: Props) {
 
   async function handleClearSessions() {
     try {
-      await clearHistory()
+      if (!user) return
+      await clearHistory(user.id)
       setHistory([])
       setShowConfirmClearHistory(false)
     } catch (error) {
@@ -97,16 +98,23 @@ export default function HistoryPanel({ onClose }: Props) {
                       </button>
                       
                       {expanded === session.id && (
-                        <ul className="history-games">
-                          {session.games?.map((g) => (
-                            <li key={g.title}>
-                              <span className="hg-title">{g.title}</span>
+                        <>
+                          {session.prompt && (
+                            <p className="history-empty" style={{ textAlign: 'left', padding: '8px 12px' }}>
+                              Prompt: {session.prompt}
+                            </p>
+                          )}
+                          <ul className="history-games">
+                          {session.games?.map((item) => (
+                            <li key={`${item.session_id}-${item.game_id}`}>
+                              <span className="hg-title">{item.position}. {item.game.title}</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span className="hg-genre">{g.genre}</span>
+                                <span className="hg-genre">{item.game.genre}</span>
                               </div>
                             </li>
                           ))}
-                        </ul>
+                          </ul>
+                        </>
                       )}
                     </div>
                   ))}

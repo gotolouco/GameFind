@@ -1,38 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Busca o AppID real na Steam para garantir link e imagem corretos
+function extractJsonObject(text: string) {
+  const clean = text.replace(/```json|```/g, '').trim()
+  const firstBrace = clean.indexOf('{')
+  const lastBrace = clean.lastIndexOf('}')
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error('A IA respondeu sem JSON valido.')
+  }
+
+  return clean.slice(firstBrace, lastBrace + 1)
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return 'Erro inesperado ao gerar recomendacoes.'
+}
+
 async function getSteamData(title: string) {
   try {
-    // Busca na API de busca da Steam
-    const searchRes = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=latam&cc=BR`
+    const response = await fetch(
+      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=latam&cc=BR`,
+      { next: { revalidate: 60 * 60 * 12 } }
     )
-    const data = await searchRes.json()
 
-    if (data && data.items && data.items.length > 0) {
-      const game = data.items[0]
-      const appid = game.id
+    if (!response.ok) throw new Error(`Steam respondeu ${response.status}`)
 
+    const data = await response.json()
+    const game = data?.items?.[0]
+
+    if (!game) {
       return {
-        // Imagem oficial da CDN da Steam (Header horizontal padrão)
-        image: `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
-        // Link direto e garantido para a página do jogo
-        storeUrl: `https://store.steampowered.com/app/${appid}`,
-        // Caso queira usar o score real da Steam em vez do da IA
-        steamScore: game.metascore || null
+        image: null,
+        storeUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`,
+        steamScore: null,
       }
     }
-    
-    // Fallback caso não encontre o jogo específico
+
     return {
-      image: null,
-      storeUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`
+      image: `https://cdn.akamai.steamstatic.com/steam/apps/${game.id}/header.jpg`,
+      storeUrl: `https://store.steampowered.com/app/${game.id}`,
+      steamScore: game.metascore || null,
     }
   } catch (error) {
     console.error(`Erro ao buscar Steam Data para ${title}:`, error)
     return {
       image: null,
-      storeUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`
+      storeUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(title)}`,
+      steamScore: null,
     }
   }
 }
@@ -41,49 +56,50 @@ export async function POST(req: NextRequest) {
   try {
     const { genre, previousTitles = [] } = await req.json()
 
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ error: 'GROQ_API_KEY nao configurada.' }, { status: 500 })
+    }
+
     const genrePrompt =
       genre === 'qualquer'
-        ? 'de qualquer gênero (misture bastante os gêneros)'
-        : `do gênero ${genre} (pode incluir subgêneros relacionados)`
+        ? 'de qualquer genero, misturando bastante os estilos'
+        : `do genero ${genre}, podendo incluir subgeneros relacionados`
 
     const avoidList = previousTitles.length > 0
-      ? `\n\nIMPORTANTE: NÃO recomende nenhum destes jogos: ${previousTitles.join(', ')}.`
+      ? `\n\nNao recomende estes jogos: ${previousTitles.join(', ')}.`
       : ''
 
     const angles = [
       'Foque em jogos indie surpreendentes',
-      'Foque em clássicos essenciais',
-      'Foque em lançamentos recentes (últimos 2 anos)',
+      'Foque em classicos essenciais',
+      'Foque em lancamentos recentes dos ultimos 2 anos',
       'Foque em narrativa marcante',
       'Foque em alto fator replay',
-      'Misture AAA com independentes'
+      'Misture AAA com independentes',
     ]
     const angle = angles[Math.floor(Math.random() * angles.length)]
 
-    const prompt = `Você é um especialista em jogos de PC. Recomende 6 jogos ${genrePrompt} que estejam disponíveis na Steam. ${angle}.${avoidList}
+    const prompt = `Voce e um especialista em jogos de PC. Recomende 6 jogos ${genrePrompt} disponiveis na Steam. ${angle}.${avoidList}
 
-Responda APENAS em JSON puro, seguindo este formato:
+Responda apenas em JSON puro neste formato:
 {
   "games": [
     {
-      "title": "Nome Exato do Jogo em Inglês",
-      "genre": "Gênero principal",
+      "title": "Nome oficial do jogo em ingles",
+      "genre": "Genero principal",
       "year": 2023,
-      "description": "Descrição curta em português",
+      "description": "Descricao curta em portugues",
       "score": 85,
       "tags": ["tag1", "tag2"],
-      "why": "Frase motivadora em português"
+      "why": "Frase motivadora em portugues"
     }
   ]
 }
 
 Regras:
-- Use obrigatoriamente o nome oficial em INGLÊS no campo "title".
-- Certifique-se de que o jogo existe na Steam.`
-
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ error: 'GROQ_API_KEY não configurada' }, { status: 500 })
-    }
+- Use obrigatoriamente o nome oficial em ingles no campo title.
+- Certifique-se de que o jogo existe na Steam.
+- Nao escreva nada fora do JSON.`
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -94,37 +110,44 @@ Regras:
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         max_tokens: 1200,
-        temperature: 0.8, // Temperatura levemente menor para evitar nomes inventados
+        temperature: 0.8,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
 
+    if (!response.ok) {
+      const body = await response.text()
+      console.error('Erro Groq:', response.status, body)
+      return NextResponse.json(
+        { error: `Falha na IA (${response.status}). Tente novamente em instantes.` },
+        { status: 502 }
+      )
+    }
+
     const data = await response.json()
     const text = data.choices?.[0]?.message?.content
-    
-    if (!text) throw new Error('Groq sem conteúdo')
+    if (!text) throw new Error('A IA nao retornou conteudo.')
 
-    const clean = text.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(clean)
+    const parsed = JSON.parse(extractJsonObject(text))
+    if (!Array.isArray(parsed.games)) {
+      throw new Error('A IA respondeu sem lista de jogos.')
+    }
 
-    // Aqui integramos os dados REAIS da Steam para cada recomendação da IA
     const gamesWithSteamData = await Promise.all(
-      parsed.games.map(async (game: any) => {
+      parsed.games.slice(0, 6).map(async (game: any) => {
         const steamDetails = await getSteamData(game.title)
         return {
           ...game,
           image: steamDetails.image,
           storeUrl: steamDetails.storeUrl,
-          // Opcional: usar o score real da Steam se disponível
-          score: steamDetails.steamScore || game.score 
+          score: steamDetails.steamScore || game.score,
         }
       })
     )
 
     return NextResponse.json({ games: gamesWithSteamData })
-
-  } catch (err) {
-    console.error('❌ Erro na rota:', err)
-    return NextResponse.json({ error: 'Erro ao gerar recomendações' }, { status: 500 })
+  } catch (error) {
+    console.error('Erro na rota de recomendacoes:', error)
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 })
   }
 }

@@ -54,7 +54,7 @@ export default function SearchBar() {
       </div>
 
       {searched && !loading && results.length === 0 && (
-        <p className="search-empty">Nenhum jogo encontrado para "{query}"</p>
+        <p className="search-empty">Nenhum jogo encontrado para &quot;{query}&quot;</p>
       )}
 
       {results.length > 0 && (

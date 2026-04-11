@@ -5,10 +5,11 @@ import { useAuth } from './AuthProvider'
 import { useModal } from '@/components/ModalContext' 
 import { Game, saveRating, removeRating, getRatings } from '@/lib/history' 
 import { addFavorite, removeFavorite, isFavorited } from '@/lib/favorites'
+import { slugifyGameTitle } from '@/lib/games'
 
 interface Props {
   // ATUALIZAÇÃO: Alterado de steamUrl para storeUrl (Agnóstico de plataforma)
-  game: Game & { image?: string | null; storeUrl?: string }
+  game: Game & { image?: string | null; storeUrl?: string | null }
   index: number
   hideLike?: boolean
 }
@@ -21,16 +22,18 @@ export default function GameCard({ game, index, hideLike}: Props) {
   const [userRating, setUserRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [ratingDone, setRatingDone] = useState(false)
+  const gameKey = game.id || game.slug || slugifyGameTitle(game.title)
 
   useEffect(() => {
     if (user) {
-      getRatings().then(ratings => {
-        if (ratings[game.title]) { 
-          setUserRating(ratings[game.title])
+      getRatings(user.id).then(ratings => {
+        const rating = ratings[game.id || ''] || ratings[game.slug || ''] || ratings[slugifyGameTitle(game.title)]
+        if (rating) {
+          setUserRating(rating)
           setRatingDone(true) 
         }
       })
-      isFavorited(game.title).then(setLiked)
+      isFavorited(game, user.id).then(setLiked)
     } else {
       setUserRating(0)
       setRatingDone(false)
@@ -38,15 +41,15 @@ export default function GameCard({ game, index, hideLike}: Props) {
     }
 
     const syncFavorite = (e: Event) => {
-      const event = e as CustomEvent<{ title: string; isLiked: boolean }>
-      if (event.detail.title === game.title) {
+      const event = e as CustomEvent<{ gameKey: string; isLiked: boolean }>
+      if (event.detail.gameKey === gameKey) {
         setLiked(event.detail.isLiked)
       }
     }
 
     const syncRating = (e: Event) => {
-      const event = e as CustomEvent<{ title: string; rating: number }>
-      if (event.detail.title === game.title) {
+      const event = e as CustomEvent<{ gameKey: string; rating: number }>
+      if (event.detail.gameKey === gameKey) {
         setUserRating(event.detail.rating)
         setRatingDone(event.detail.rating > 0)
       }
@@ -59,7 +62,7 @@ export default function GameCard({ game, index, hideLike}: Props) {
       window.removeEventListener('favoriteSync', syncFavorite)
       window.removeEventListener('ratingSync', syncRating) 
     }
-  }, [game.title, user])
+  }, [game.id, game.slug, game.title, gameKey, user])
 
   const stopTrigger = (e: React.MouseEvent) => {
     e.stopPropagation() 
@@ -81,20 +84,22 @@ export default function GameCard({ game, index, hideLike}: Props) {
     setLiked(newLiked) 
 
     window.dispatchEvent(new CustomEvent('favoriteSync', { 
-      detail: { title: game.title, isLiked: newLiked } 
+      detail: { gameKey, isLiked: newLiked } 
     }))
 
     try {
       if (newLiked) {
-        await addFavorite(game)
+        await addFavorite(game, user.id)
       } else {
-        await removeFavorite(game.title)
+        await removeFavorite(game, user.id)
       }
-      window.dispatchEvent(new Event('favoritesUpdated')) 
+      window.dispatchEvent(new CustomEvent('favoritesUpdated', {
+        detail: { delta: newLiked ? 1 : -1 }
+      }))
     } catch (error) {
       setLiked(!newLiked)
       window.dispatchEvent(new CustomEvent('favoriteSync', { 
-        detail: { title: game.title, isLiked: !newLiked } 
+        detail: { gameKey, isLiked: !newLiked } 
       }))
       console.error("Erro ao processar favorito:", error)
     } finally {
@@ -118,14 +123,14 @@ export default function GameCard({ game, index, hideLike}: Props) {
     setRatingDone(newRating > 0)
 
     window.dispatchEvent(new CustomEvent('ratingSync', { 
-      detail: { title: game.title, rating: newRating } 
+      detail: { gameKey, rating: newRating } 
     }))
 
     try {
       if (newRating === 0) {
-        await removeRating(game.title)
+        await removeRating(game, user.id)
       } else {
-        await saveRating(game.title, newRating)
+        await saveRating(game, newRating, null, user.id)
       }
     } catch (error) {
       console.error("Erro ao guardar avaliação:", error)
@@ -133,7 +138,7 @@ export default function GameCard({ game, index, hideLike}: Props) {
       setRatingDone(previousRating > 0)
       
       window.dispatchEvent(new CustomEvent('ratingSync', { 
-        detail: { title: game.title, rating: previousRating } 
+        detail: { gameKey, rating: previousRating } 
       }))
     }
   }
@@ -176,7 +181,7 @@ export default function GameCard({ game, index, hideLike}: Props) {
           <div className="card-desc">{game.description}</div>
           
           <div className="card-meta">
-            {game.tags.map((t) => <span key={t} className="meta-tag">{t}</span>)}
+            {(game.tags || []).map((t) => <span key={t} className="meta-tag">{t}</span>)}
             
             {/* Opcional: Só exibe o score se a loja o forneceu */}
             {game.score !== null && game.score !== undefined && (

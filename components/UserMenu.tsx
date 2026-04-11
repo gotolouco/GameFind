@@ -2,17 +2,18 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './AuthProvider'
 import { getFavorites } from '@/lib/favorites'
-import { LogOut, Heart, User, ChevronDown, Clock, Star } from 'lucide-react'
+import { LogOut, Heart, User, ChevronDown, Clock, Star, BadgeCheck } from 'lucide-react'
 
 interface Props {
   onOpenAuth: () => void
+  onOpenProfile: () => void
   onOpenFavorites: () => void
   onOpenHistory: () => void
   onOpenRatings: () => void
 }
 
-export default function UserMenu({ onOpenAuth, onOpenFavorites, onOpenHistory, onOpenRatings}: Props) {
-  const { user, loading, signOut } = useAuth()
+export default function UserMenu({ onOpenAuth, onOpenProfile, onOpenFavorites, onOpenHistory, onOpenRatings}: Props) {
+  const { user, profile, avatarUrl, loading, signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [favCount, setFavCount] = useState(0)
 
@@ -20,25 +21,41 @@ export default function UserMenu({ onOpenAuth, onOpenFavorites, onOpenHistory, o
   useEffect(() => {
     function fetchFavCount() {
       if (user) {
-        getFavorites().then(favs => setFavCount(favs.length))
+        getFavorites(user.id).then(favs => setFavCount(favs.length))
       } else {
         setFavCount(0)
       }
+    }
+
+    function syncFavCount(event: Event) {
+      const detail = (event as CustomEvent<{ delta?: number }>).detail
+      if (typeof detail?.delta === 'number') {
+        setFavCount(current => Math.max(0, current + detail.delta!))
+        return
+      }
+
+      fetchFavCount()
     }
 
     // Carrega a quantidade assim que o menu aparece ou o user loga
     fetchFavCount()
 
     // Fica escutando o evento 'favoritesUpdated' que vamos disparar nos outros componentes
-    window.addEventListener('favoritesUpdated', fetchFavCount)
+    window.addEventListener('favoritesUpdated', syncFavCount)
 
     // Remove a escuta ao desmontar para evitar vazamento de memória
     return () => {
-      window.removeEventListener('favoritesUpdated', fetchFavCount)
+      window.removeEventListener('favoritesUpdated', syncFavCount)
     }
   }, [user])
 
-  if (loading) return null
+  if (loading) {
+    return (
+      <button className="auth-trigger" type="button" disabled>
+        <User size={13} /> ...
+      </button>
+    )
+  }
 
   if (!user) {
     return (
@@ -48,26 +65,34 @@ export default function UserMenu({ onOpenAuth, onOpenFavorites, onOpenHistory, o
     )
   }
 
-  const initials = (user.user_metadata?.display_name || user.email || 'U')
+  const displayName = profile?.display_name || profile?.username || 'Jogador'
+  const initials = (displayName || user.email || 'U')
     .split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="user-menu-wrap">
       <button className="user-trigger" onClick={() => setOpen(!open)}>
-        <div className="user-avatar">{initials}</div>
+        <div className="user-avatar">
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}
+        </div>
         <ChevronDown size={12} style={{ opacity: 0.6 }} />
       </button>
 
       {open && (
         <div className="user-dropdown" onMouseLeave={() => setOpen(false)}>
           <div className="user-info">
-            <div className="user-avatar lg">{initials}</div>
+            <div className="user-avatar lg">
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}
+            </div>
             <div>
-              <div className="user-name">{user.user_metadata?.display_name || 'Jogador'}</div>
+              <div className="user-name">{displayName}</div>
               <div className="user-email">{user.email}</div>
             </div>
           </div>
           <div className="user-divider" />
+          <button className="user-menu-item" onClick={() => { onOpenProfile(); setOpen(false) }}>
+            <BadgeCheck size={13} /> Meu perfil
+          </button>
           <button className="user-menu-item" onClick={() => { onOpenFavorites(); setOpen(false) }}>
             <Heart size={13} /> Meus favoritos
             {favCount > 0 && <span className="fav-count">{favCount}</span>}

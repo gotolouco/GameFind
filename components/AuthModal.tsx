@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { ensureProfile, updateProfile } from '@/lib/profile'
 import { X, Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
 
 interface Props {
@@ -29,15 +30,19 @@ export default function AuthModal({ onClose }: Props) {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+        window.dispatchEvent(new Event('authSessionUpdated'))
         onClose()
 
       } else if (mode === 'register') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { display_name: name } }
         })
         if (error) throw error
+        if (data.user && data.session) {
+          await ensureProfile(data.user.id, data.user.email)
+          await updateProfile(data.user.id, { display_name: name.trim() || 'Jogador' })
+        }
         setSuccess('Conta criada! Verifique seu email para confirmar.')
 
       } else if (mode === 'forgot') {
