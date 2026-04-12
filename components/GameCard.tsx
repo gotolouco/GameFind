@@ -132,6 +132,10 @@ export default function GameCard({ game, index, hideLike}: Props) {
       } else {
         await saveRating(game, newRating, null, user.id)
       }
+
+      window.dispatchEvent(new CustomEvent('ratingsUpdated', {
+        detail: { gameKey, rating: newRating }
+      }))
     } catch (error) {
       console.error("Erro ao guardar avaliação:", error)
       setUserRating(previousRating)
@@ -149,6 +153,9 @@ export default function GameCard({ game, index, hideLike}: Props) {
 
   // Tratamento da cor da avaliação
   const scoreColor = (game.score ?? 0) >= 85 ? '#4ade80' : (game.score ?? 0) >= 70 ? '#facc15' : '#ff3e6c'
+  const scoreStars = game.score !== null && game.score !== undefined
+    ? Math.max(0, Math.min(5, game.score / 20))
+    : null
   const ratingLabels = ['', 'Péssimo', 'Ruim', 'Ok', 'Bom', 'Incrível!']
 
   return (
@@ -184,8 +191,15 @@ export default function GameCard({ game, index, hideLike}: Props) {
             {(game.tags || []).map((t) => <span key={t} className="meta-tag">{t}</span>)}
             
             {/* Opcional: Só exibe o score se a loja o forneceu */}
-            {game.score !== null && game.score !== undefined && (
-               <span className="meta-score" style={{ color: scoreColor }}>{game.score}/100</span>
+            {scoreStars !== null && (
+               <span
+                 className="meta-score"
+                 style={{ color: scoreColor }}
+                 title={`Nota do jogo: ${scoreStars.toFixed(1)} de 5`}
+               >
+                 <Star size={11} fill={scoreColor} color={scoreColor} strokeWidth={1.5} />
+                 {scoreStars.toFixed(1)}/5
+               </span>
             )}
             
             {!hideLike && (

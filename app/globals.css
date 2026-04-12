@@ -443,6 +443,9 @@ h1 {
 }
 
 .meta-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-family: 'Unbounded', sans-serif;
   font-size: 0.65rem;
   font-weight: 700;

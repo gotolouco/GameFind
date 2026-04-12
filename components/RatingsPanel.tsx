@@ -38,6 +38,45 @@ export default function UserRatingsPanel({ onClose }: Props) {
     loadRatings()
   }, [user])
 
+  useEffect(() => {
+    if (!user) return
+
+    const matchesGameKey = (item: RatingWithGame, gameKey?: string) => {
+      if (!gameKey) return false
+
+      return [
+        item.game_id,
+        item.game.id,
+        item.game.slug,
+        slugifyGameTitle(item.game.title),
+      ].includes(gameKey)
+    }
+
+    const removeSyncedRating = (event: Event) => {
+      const detail = (event as CustomEvent<{ gameKey?: string; rating?: number }>).detail
+      if (detail?.rating !== 0) return
+
+      setRatings(prev => prev.filter(item => !matchesGameKey(item, detail.gameKey)))
+    }
+
+    const reloadSyncedRatings = async () => {
+      try {
+        const fetchedRatings = await getUserRatings(user.id, { force: true })
+        setRatings(fetchedRatings)
+      } catch (error) {
+        console.error('Erro ao atualizar avaliacoes:', error)
+      }
+    }
+
+    window.addEventListener('ratingSync', removeSyncedRating)
+    window.addEventListener('ratingsUpdated', reloadSyncedRatings)
+
+    return () => {
+      window.removeEventListener('ratingSync', removeSyncedRating)
+      window.removeEventListener('ratingsUpdated', reloadSyncedRatings)
+    }
+  }, [user])
+
   async function handleClearRatings() {
     try {
       if (!user) return
